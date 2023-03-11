@@ -5,3 +5,9 @@
 # --------------------------------------------------------
 
 from .backbones import *  # noqa: F401,F403
+from .segmentors import *
+from .decode_heads import *
+from .losses import *  # noqa: F401,F403
+from .plugins import *
+from .builder import (MASK_ASSIGNERS, MATCH_COST, TRANSFORMER, build_assigner,
+                      build_match_cost)

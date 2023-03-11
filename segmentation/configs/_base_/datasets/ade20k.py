@@ -1,6 +1,6 @@
 # dataset settings
 dataset_type = 'ADE20KDataset'
-data_root = 'data/ADEChallengeData2016'
+data_root = '/raid/andreim/ADEChallengeData2016'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 crop_size = (512, 512)
@@ -13,8 +13,9 @@ train_pipeline = [
     dict(type='PhotoMetricDistortion'),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size=crop_size, pad_val=0, seg_pad_val=255),
+    dict(type='ToMask'),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_semantic_seg']),
+    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels'])
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
