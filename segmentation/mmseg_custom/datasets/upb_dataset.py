@@ -325,10 +325,13 @@ def main():
     for i, el in enumerate(dataloader):
         if i % 100 == 0:
             print(i)
-        if el['category'] in categories:
-            categories[el['category']] += 1
-        else:
-            categories[el['category']] = 1
+            for cat in el['category']:
+                print(cat)
+        for cat in el['category']:
+            if cat in categories:
+                categories[cat] += 1
+            else:
+                categories[cat] = 1
     print(categories)
 
 
