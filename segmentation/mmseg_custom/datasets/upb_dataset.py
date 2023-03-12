@@ -326,8 +326,9 @@ def main():
         if i % 100 == 0:
             print(i)
             for cat in el['category']:
-                print(cat)
+                print(cat.item())
         for cat in el['category']:
+            cat = cat.item()
             if cat in categories:
                 categories[cat] += 1
             else:
