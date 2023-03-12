@@ -80,3 +80,23 @@ class ToMask(object):
     def __repr__(self):
         return self.__class__.__name__ + \
                f'(ignore_index={self.ignore_index})'
+
+
+@PIPELINES.register_module()
+class LoadCategory(object):
+
+    def __init__(self):
+        pass
+
+    def __call__(self, results):
+        """Call function to load multiple types annotations.
+
+        Args:
+            results (dict): Result dict from :obj:`mmseg.CustomDataset`.
+
+        Returns:
+            dict: The dict contains loaded semantic segmentation annotations.
+        """
+
+        results['category'] = results['ann_info']['category']
+        return results
