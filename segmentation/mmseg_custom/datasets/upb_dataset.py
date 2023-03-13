@@ -273,25 +273,6 @@ class UPBDataset(CustomDataset):
             return self.prepare_train_img(idx)
 
 
-@PIPELINES.register_module()
-class LoadCategory(object):
-
-    def __init__(self):
-        pass
-
-    def __call__(self, results):
-        """Call function to load multiple types annotations.
-
-        Args:
-            results (dict): Result dict from :obj:`mmseg.CustomDataset`.
-
-        Returns:
-            dict: The dict contains loaded semantic segmentation annotations.
-        """
-
-        results['category'] = results['ann_info']['category']
-        return results
-
 def main():
     dataset_type = 'UPBDataset'
     data_root = '/raid/andreim/nemodrive/upb_data/segmentation/'

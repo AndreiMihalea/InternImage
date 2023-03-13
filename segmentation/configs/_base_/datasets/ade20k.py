@@ -14,8 +14,9 @@ train_pipeline = [
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size=crop_size, pad_val=0, seg_pad_val=255),
     dict(type='ToMask'),
+    dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels'])
+    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels', 'gt_soft_seg'])
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
