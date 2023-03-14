@@ -473,7 +473,7 @@ class ToSoft:
         for _ in range(self.num_iter):
             gt_seg = cv2.GaussianBlur(gt_seg, self.kernel_size, self.std_dev)
 
-        input_dict['gt_soft_seg'] = gt_seg / gt_seg.max()
+        input_dict['gt_soft_seg'] = gt_seg / gt_seg.max() if gt_seg.max() else np.ones_like(gt_seg)
         input_dict['gt_soft_seg'] = input_dict['gt_soft_seg'][np.newaxis, :]
 
         return input_dict
