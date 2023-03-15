@@ -468,12 +468,15 @@ class ToSoft:
         self.std_dev = std_dev
 
     def __call__(self, input_dict):
-        gt_seg = input_dict['gt_semantic_seg'].copy()
+        gt_masks = input_dict['gt_masks'].copy()
 
-        for _ in range(self.num_iter):
-            gt_seg = cv2.GaussianBlur(gt_seg, self.kernel_size, self.std_dev)
+        print(gt_masks.shape)
+        gt_soft_masks = []
+        for gt_mask in gt_masks:
+            for _ in range(self.num_iter):
+                gt_mask = cv2.GaussianBlur(gt_mask, self.kernel_size, self.std_dev)
+            gt_soft_masks.append(gt_mask / gt_mask.max())
 
-        input_dict['gt_soft_seg'] = gt_seg / gt_seg.max()
-        input_dict['gt_soft_seg'] = input_dict['gt_soft_seg'][np.newaxis, :]
+        input_dict['gt_soft_masks'] = np.array(gt_soft_masks)
 
         return input_dict
