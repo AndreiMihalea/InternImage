@@ -477,6 +477,4 @@ class ToSoft:
                 gt_mask = cv2.GaussianBlur(gt_mask, self.kernel_size, self.std_dev)
             gt_soft_masks.append(gt_mask / gt_mask.max())
 
-        input_dict['gt_soft_masks'] = np.array(gt_soft_masks)
-
         return input_dict
