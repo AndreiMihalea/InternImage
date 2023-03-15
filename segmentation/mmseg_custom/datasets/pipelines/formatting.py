@@ -75,6 +75,7 @@ class ToMask(object):
 
         results['gt_labels'] = gt_labels
         results['gt_masks'] = gt_masks
+        print(gt_masks.shape, 'mask_shape')
         return results
 
     def __repr__(self):

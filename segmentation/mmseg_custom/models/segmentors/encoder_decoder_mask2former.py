@@ -1,4 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import cv2
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -151,6 +152,24 @@ class EncoderDecoderMask2Former(BaseSegmentor):
             losses.update(loss_aux)
 
         return losses
+
+    def forward(self, img, img_metas, return_loss=True, **kwargs):
+        """Calls either :func:`forward_train` or :func:`forward_test` depending
+        on whether ``return_loss`` is ``True``.
+
+        Note this setting will change the expected inputs. When
+        ``return_loss=True``, img and img_meta are single-nested (i.e. Tensor
+        and List[dict]), and when ``resturn_loss=False``, img and img_meta
+        should be double nested (i.e.  List[Tensor], List[List[dict]]), with
+        the outer list indicating test time augmentations.
+        """
+        # print(img[0].shape)
+        # cv2.imshow('img', img[0][0].cpu().numpy().transpose((1, 2, 0)))
+        # cv2.waitKey(0)
+        if return_loss:
+            return self.forward_train(img, img_metas, **kwargs)
+        else:
+            return self.forward_test(img, img_metas, **kwargs)
 
     # TODO refactor
     def slide_inference(self, img, img_meta, rescale):

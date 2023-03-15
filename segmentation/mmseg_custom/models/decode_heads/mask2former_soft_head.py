@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import copy
 
+import cv2
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -666,11 +667,18 @@ class Mask2FormerSoftHead(BaseDecodeHead):
             seg_mask (Tensor): Predicted semantic segmentation logits.
         """
         all_cls_scores, all_mask_preds, all_soft_preds = self(inputs, img_metas)
-        cls_score, mask_pred = all_cls_scores[-1], all_mask_preds[-1]
+        cls_score, mask_pred, soft_pred = all_cls_scores[-1], all_mask_preds[-1], all_soft_preds[-1]
         ori_h, ori_w, _ = img_metas[0]['ori_shape']
+
+        # print(mask_pred.shape, soft_pred.shape, cls_score.shape)
 
         # semantic inference
         cls_score = F.softmax(cls_score, dim=-1)[..., :-1]
+        # print(cls_score.shape)
         mask_pred = mask_pred.sigmoid()
         seg_mask = torch.einsum('bqc,bqhw->bchw', cls_score, mask_pred)
+        # print(seg_mask.shape)
+        # for i in soft_pred[0]:
+        #     cv2.imshow('pred', i.cpu().numpy())
+        #     cv2.waitKey(0)
         return seg_mask
