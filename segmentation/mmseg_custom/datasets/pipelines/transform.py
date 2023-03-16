@@ -455,26 +455,3 @@ class PerspectiveAug:
             # cv2.waitKey(0)
 
         return input_dict
-
-
-@PIPELINES.register_module()
-class ToSoft:
-    """
-    Turn class segmentation into soft labels (this is thought for two classes)
-    """
-    def __init__(self, num_iter, kernel_size, std_dev):
-        self.num_iter = num_iter
-        self.kernel_size = kernel_size
-        self.std_dev = std_dev
-
-    def __call__(self, input_dict):
-        gt_masks = input_dict['gt_masks'].copy()
-
-        print(gt_masks.shape)
-        gt_soft_masks = []
-        for gt_mask in gt_masks:
-            for _ in range(self.num_iter):
-                gt_mask = cv2.GaussianBlur(gt_mask, self.kernel_size, self.std_dev)
-            gt_soft_masks.append(gt_mask / gt_mask.max())
-
-        return input_dict

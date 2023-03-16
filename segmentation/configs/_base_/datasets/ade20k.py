@@ -16,7 +16,7 @@ train_pipeline = [
     dict(type='ToMask'),
     dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels', 'gt_soft_seg'])
+    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels', 'gt_soft_masks'])
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),

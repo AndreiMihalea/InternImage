@@ -1,4 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import cv2
 import numpy as np
 from mmcv.parallel import DataContainer as DC
 from mmseg.datasets.builder import PIPELINES
@@ -42,6 +43,8 @@ class DefaultFormatBundle(object):
             results['gt_masks'] = DC(to_tensor(results['gt_masks']))
         if 'gt_labels' in results:
             results['gt_labels'] = DC(to_tensor(results['gt_labels']))
+        if 'gt_soft_masks' in results:
+            results['gt_soft_masks'] = DC(to_tensor(results['gt_soft_masks']))
 
         return results
 
@@ -75,12 +78,37 @@ class ToMask(object):
 
         results['gt_labels'] = gt_labels
         results['gt_masks'] = gt_masks
-        print(gt_masks.shape, 'mask_shape')
+
         return results
 
     def __repr__(self):
         return self.__class__.__name__ + \
                f'(ignore_index={self.ignore_index})'
+
+
+@PIPELINES.register_module()
+class ToSoft:
+    """
+    Turn class segmentation into soft labels (this is thought for two classes)
+    """
+    def __init__(self, num_iter, kernel_size, std_dev):
+        self.num_iter = num_iter
+        self.kernel_size = kernel_size
+        self.std_dev = std_dev
+
+    def __call__(self, input_dict):
+        gt_masks = input_dict['gt_masks'].copy()
+
+        gt_soft_masks = []
+        for gt_mask in gt_masks:
+            gt_mask_copy = gt_mask.copy()
+            for _ in range(self.num_iter):
+                gt_mask_copy = cv2.GaussianBlur(gt_mask_copy.astype(np.float32), self.kernel_size, self.std_dev)
+            gt_soft_masks.append(gt_mask_copy)
+
+        input_dict['gt_soft_masks'] = np.array(gt_soft_masks)
+
+        return input_dict
 
 
 @PIPELINES.register_module()
