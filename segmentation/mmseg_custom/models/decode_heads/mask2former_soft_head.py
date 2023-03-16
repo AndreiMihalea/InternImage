@@ -429,8 +429,8 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         return loss_cls, loss_mask, loss_dice, loss_soft
 
     @force_fp32(apply_to=('all_cls_scores', 'all_mask_preds'))
-    def loss(self, all_cls_scores, all_mask_preds, all_soft_preds, gt_labels_list,
-             gt_masks_list, gt_soft_list, img_metas):
+    def loss(self, all_cls_scores, all_mask_preds, all_soft_mask_preds, gt_labels_list,
+             gt_masks_list, gt_soft_masks_list, img_metas):
         """Loss function.
 
         Args:
@@ -452,7 +452,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         num_dec_layers = len(all_cls_scores)
         all_gt_labels_list = [gt_labels_list for _ in range(num_dec_layers)]
         all_gt_masks_list = [gt_masks_list for _ in range(num_dec_layers)]
-        all_gt_soft_list = [gt_soft_list for _ in range(num_dec_layers)]
+        all_gt_soft_masks_list = [gt_soft_masks_list for _ in range(num_dec_layers)]
         # for i in all_gt_labels_list[0]:
         #     print(i.shape, 'labels')
         # for i in all_gt_masks_list[0]:
@@ -467,8 +467,8 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         #     print(i.shape, 'soft preds')
         img_metas_list = [img_metas for _ in range(num_dec_layers)]
         losses_cls, losses_mask, losses_dice, losses_soft = multi_apply(
-            self.loss_single, all_cls_scores, all_mask_preds, all_soft_preds,
-            all_gt_labels_list, all_gt_masks_list, all_gt_soft_list, img_metas_list)
+            self.loss_single, all_cls_scores, all_mask_preds, all_soft_mask_preds,
+            all_gt_labels_list, all_gt_masks_list, all_gt_soft_masks_list, img_metas_list)
 
         loss_dict = dict()
         # loss from the last decoder layer
@@ -516,9 +516,9 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         # shape (num_queries, batch_size, h, w)
         mask_pred = torch.einsum('bqc,bchw->bqhw', mask_embed, mask_feature)
         # shape (num_queries, batch_size, c)
-        soft_embed = self.soft_embed(decoder_out)
+        soft_mask_embed = self.soft_embed(decoder_out)
         # shape (num_queries, batch_size, h, w)
-        soft_pred = torch.einsum('bqc,bchw->bqhw', soft_embed, mask_feature)
+        soft_mask_pred = torch.einsum('bqc,bchw->bqhw', soft_mask_embed, mask_feature)
 
         attn_mask = F.interpolate(
             mask_pred,
@@ -532,7 +532,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         attn_mask = attn_mask.sigmoid() < 0.5
         attn_mask = attn_mask.detach()
 
-        return cls_pred, mask_pred, soft_pred, attn_mask
+        return cls_pred, mask_pred, soft_mask_pred, attn_mask
 
     def forward(self, feats, img_metas):
         """Forward function.
@@ -582,12 +582,12 @@ class Mask2FormerSoftHead(BaseDecodeHead):
 
         cls_pred_list = []
         mask_pred_list = []
-        soft_pred_list = []
-        cls_pred, mask_pred, soft_pred, attn_mask = self.forward_head(
+        soft_mask_pred_list = []
+        cls_pred, mask_pred, soft_mask_pred, attn_mask = self.forward_head(
             query_feat, mask_features, multi_scale_memorys[0].shape[-2:])
         cls_pred_list.append(cls_pred)
         mask_pred_list.append(mask_pred)
-        soft_pred_list.append(soft_pred)
+        soft_mask_pred_list.append(soft_mask_pred)
 
         for i in range(self.num_transformer_decoder_layers):
             level_idx = i % self.num_transformer_feat_level
@@ -654,10 +654,10 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         # for i in gt_soft_seg:
         #     print(i.shape)
         # forward
-        all_cls_scores, all_mask_preds, all_soft_preds = self(x, img_metas)
+        all_cls_scores, all_mask_preds, all_soft_mask_preds = self(x, img_metas)
 
         # loss
-        losses = self.loss(all_cls_scores, all_mask_preds, all_soft_preds, gt_labels, gt_masks, gt_soft_masks,
+        losses = self.loss(all_cls_scores, all_mask_preds, all_soft_mask_preds, gt_labels, gt_masks, gt_soft_masks,
                            img_metas)
 
         return losses
