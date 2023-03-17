@@ -4,7 +4,7 @@
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
 _base_ = [
-    '../_base_/models/mask2former.py', '../_base_/datasets/ade20k.py',
+    '../_base_/models/mask2former_soft.py', '../_base_/datasets/ade20k.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
 ]
 pretrained = 'https://github.com/OpenGVLab/InternImage/releases/download/cls_model/internimage_t_1k_224.pth'

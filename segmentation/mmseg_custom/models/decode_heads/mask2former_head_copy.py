@@ -1,7 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import copy
 
-import cv2
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,7 +18,7 @@ from ..utils import get_uncertain_point_coords_with_randomness
 
 
 @HEADS.register_module()
-class Mask2FormerSoftHead(BaseDecodeHead):
+class Mask2FormerHead(BaseDecodeHead):
     """Implements the Mask2Former head.
 
     See `Masked-attention Mask Transformer for Universal Image
@@ -75,7 +74,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                  test_cfg=None,
                  init_cfg=None,
                  **kwargs):
-        super(Mask2FormerSoftHead, self).__init__(
+        super(Mask2FormerHead, self).__init__(
             in_channels=in_channels,
             channels=feat_channels,
             num_classes=(num_things_classes + num_stuff_classes),
@@ -125,7 +124,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
             nn.Linear(feat_channels, feat_channels), nn.ReLU(inplace=True),
             nn.Linear(feat_channels, feat_channels), nn.ReLU(inplace=True),
             nn.Linear(feat_channels, out_channels))
-        self.soft_embed = nn.Sequential(
+        self.soft_mask_embed = nn.Sequential(
             nn.Linear(feat_channels, feat_channels), nn.ReLU(inplace=True),
             nn.Linear(feat_channels, feat_channels), nn.ReLU(inplace=True),
             nn.Linear(feat_channels, out_channels))
@@ -159,7 +158,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                 nn.init.xavier_normal_(p)
 
     def get_targets(self, cls_scores_list, mask_preds_list, soft_mask_preds_list, gt_labels_list,
-                    gt_masks_list, gt_soft_mask_list, img_metas):
+                    gt_masks_list, gt_soft_masks_list, img_metas):
         """Compute classification and mask targets for all images for a decoder
         layer.
 
@@ -169,14 +168,14 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                 cls_out_channels].
             mask_preds_list (list[Tensor]): Mask logits from a single decoder
                 layer for all images. Each with shape [num_queries, h, w].
-            soft_mask_preds_list (list[Tensor]): Mask logits from a single decoder
+            soft_mask_preds_list (list[Tensor]): Soft mask logits from a single decoder
                 layer for all images. Each with shape [num_queries, h, w].
             gt_labels_list (list[Tensor]): Ground truth class indices for all
                 images. Each with shape (n, ), n is the sum of number of stuff
                 type and number of instance in a image.
             gt_masks_list (list[Tensor]): Ground truth mask for each image,
                 each with shape (n, h, w).
-            gt_soft_mask_list (list[Tensor]): Ground truth soft mask for each image,
+            gt_soft_masks_list (list[Tensor]): Ground truth soft mask for each image,
                 each with shape (n, h, w).
             img_metas (list[dict]): List of image meta information.
 
@@ -191,21 +190,41 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                     Each with shape [num_queries, h, w].
                 - mask_weights_list (list[Tensor]): Mask weights of all images.
                     Each with shape [num_queries, ].
+                - soft_mask_targets_list (list[Tensor]): Soft mask targets of all images.
+                    Each with shape [num_queries, h, w].
+                - soft_mask_weights_list (list[Tensor]): Soft mask weights of all images.
+                    Each with shape [num_queries, ].
                 - num_total_pos (int): Number of positive samples in all
                     images.
                 - num_total_neg (int): Number of negative samples in all
                     images.
         """
-        (labels_list, label_weights_list, mask_targets_list, mask_weights_list, soft_targets_list, soft_weights_list,
+        (labels_list,
+         label_weights_list,
+         mask_targets_list,
+         mask_weights_list,
+         soft_mask_targets_list,
+         soft_mask_weights_list,
          pos_inds_list,
-         neg_inds_list) = multi_apply(self._get_target_single, cls_scores_list,
-                                      mask_preds_list, soft_mask_preds_list, gt_labels_list,
-                                      gt_masks_list, gt_soft_mask_list, img_metas)
+         neg_inds_list) = multi_apply(self._get_target_single,
+                                      cls_scores_list,
+                                      mask_preds_list,
+                                      soft_mask_preds_list,
+                                      gt_labels_list,
+                                      gt_masks_list,
+                                      gt_soft_masks_list,
+                                      img_metas)
 
         num_total_pos = sum((inds.numel() for inds in pos_inds_list))
         num_total_neg = sum((inds.numel() for inds in neg_inds_list))
-        return (labels_list, label_weights_list, mask_targets_list,
-                mask_weights_list, soft_targets_list, soft_weights_list, num_total_pos, num_total_neg)
+        return (labels_list,
+                label_weights_list,
+                mask_targets_list,
+                mask_weights_list,
+                soft_mask_targets_list,
+                soft_mask_weights_list,
+                num_total_pos,
+                num_total_neg)
 
     def _get_target_single(self, cls_score, mask_pred, soft_mask_pred, gt_labels, gt_masks, gt_soft_masks,
                            img_metas):
@@ -237,6 +256,10 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                     shape (num_queries, h, w).
                 - mask_weights (Tensor): Mask weights of each image. \
                     shape (num_queries, ).
+                - soft_mask_targets (Tensor): Soft mask targets of each image. \
+                    shape (num_queries, h, w).
+                - soft_mask_weights (Tensor): Soft mask weights of each image. \
+                    shape (num_queries, ).
                 - pos_inds (Tensor): Sampled positive indices for each \
                     image.
                 - neg_inds (Tensor): Sampled negative indices for each \
@@ -250,23 +273,25 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                                   device=cls_score.device)
         # shape (num_queries, num_points)
         mask_points_pred = point_sample(
-            mask_pred.unsqueeze(1), point_coords.repeat(num_queries, 1,
-                                                        1)).squeeze(1)
+            mask_pred.unsqueeze(1), point_coords.repeat(num_queries, 1, 1)).squeeze(1)
         # shape (num_gts, num_points)
         gt_points_masks = point_sample(
-            gt_masks.unsqueeze(1).float(), point_coords.repeat(num_gts, 1,
-                                                               1)).squeeze(1)
+            gt_masks.unsqueeze(1).float(), point_coords.repeat(num_gts, 1, 1)).squeeze(1)
+
+        # shape (num_queries, num_points)
+        soft_mask_points_pred = point_sample(
+            soft_mask_pred.unsqueeze(1), point_coords.repeat(num_queries, 1, 1)).squeeze(1)
+        # shape (num_gts, num_points)
+        gt_points_soft_masks = point_sample(
+            gt_soft_masks.unsqueeze(1).float(), point_coords.repeat(num_gts, 1, 1)).squeeze(1)
 
         # assign and sample
-        assign_result = self.assigner.assign(cls_score, mask_points_pred,
-                                             gt_labels, gt_points_masks,
+        assign_result = self.assigner.assign(cls_score, mask_points_pred, soft_mask_points_pred,
+                                             gt_labels, gt_points_masks, gt_points_soft_masks,
                                              img_metas)
-        sampling_result = self.sampler.sample(assign_result, mask_pred,
-                                              gt_masks)
+        sampling_result = self.sampler.sample(assign_result, mask_pred, gt_masks)
         pos_inds = sampling_result.pos_inds
         neg_inds = sampling_result.neg_inds
-
-        # print(pos_inds, gt_labels, gt_labels[sampling_result.pos_assigned_gt_inds], sampling_result.pos_assigned_gt_inds)
 
         # label target
         labels = gt_labels.new_full((self.num_queries, ),
@@ -282,11 +307,13 @@ class Mask2FormerSoftHead(BaseDecodeHead):
 
         # soft mask target
         soft_mask_targets = gt_soft_masks[sampling_result.pos_assigned_gt_inds]
-        soft_mask_weights = soft_mask_pred.new_zeros((self.num_queries, ))
+        soft_mask_weights = soft_mask_pred.new_zeros((self.num_queries,))
         soft_mask_weights[pos_inds] = 1.0
 
-        return (labels, label_weights, mask_targets, mask_weights, soft_mask_targets, soft_mask_weights, pos_inds,
-                neg_inds)
+        return (labels, label_weights,
+                mask_targets, mask_weights,
+                soft_mask_targets, soft_mask_weights,
+                pos_inds, neg_inds)
 
     def loss_single(self, cls_scores, mask_preds, soft_mask_preds, gt_labels_list,
                     gt_masks_list, gt_soft_masks_list, img_metas):
@@ -299,7 +326,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                 background.
             mask_preds (Tensor): Mask logits for a pixel decoder for all
                 images. Shape (batch_size, num_queries, h, w).
-            soft_mask_preds (Tensor): Mask logits for a pixel decoder for all
+            soft_mask_preds (Tensor): Soft mask logits for a pixel decoder for all
                 images. Shape (batch_size, num_queries, h, w).
             gt_labels_list (list[Tensor]): Ground truth class indices for each
                 image, each with shape (num_gts, ).
@@ -317,24 +344,12 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         cls_scores_list = [cls_scores[i] for i in range(num_imgs)]
         mask_preds_list = [mask_preds[i] for i in range(num_imgs)]
         soft_mask_preds_list = [soft_mask_preds[i] for i in range(num_imgs)]
-        # for i in cls_scores_list:
-        #     print(i.shape, 'cls')
-        # for i in mask_preds_list:
-        #     print(i.shape, 'mask')
-        # for i in soft_preds_list:
-        #     print(i.shape, 'soft')
-        # print(num_imgs)
-        (labels_list, label_weights_list, mask_targets_list, mask_weights_list, soft_mask_targets_list,
-         soft_mask_weights_list, num_total_pos, num_total_neg) = \
-            self.get_targets(cls_scores_list, mask_preds_list, soft_mask_preds_list,
+        (labels_list, label_weights_list,
+         mask_targets_list, mask_weights_list,
+         soft_mask_targets_list, soft_mask_weights_list,
+         num_total_pos,  num_total_neg) = self.get_targets(cls_scores_list, mask_preds_list, soft_mask_preds_list,
                                            gt_labels_list, gt_masks_list, gt_soft_masks_list,
                                            img_metas)
-        # for i in cls_scores_list:
-        #     print(i.shape, 'cls')
-        # for i in mask_preds_list:
-        #     print(i.shape, 'mask')
-        # for i in soft_preds_list:
-        #     print(i.shape, 'soft')
         # shape (batch_size, num_queries)
         labels = torch.stack(labels_list, dim=0)
         # shape (batch_size, num_queries)
@@ -343,12 +358,10 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         mask_targets = torch.cat(mask_targets_list, dim=0)
         # shape (batch_size, num_queries)
         mask_weights = torch.stack(mask_weights_list, dim=0)
-        # shape (batch_size, h, w)
+        # shape (num_total_gts, h, w)
         soft_mask_targets = torch.cat(soft_mask_targets_list, dim=0)
         # shape (batch_size, num_queries)
         soft_mask_weights = torch.stack(soft_mask_weights_list, dim=0)
-
-        # print(labels.shape, label_weights.shape, mask_targets.shape, mask_weights.shape, soft_targets.shape, soft_weights.shape)
 
         # classfication loss
         # shape (batch_size * num_queries, )
@@ -375,7 +388,8 @@ class Mask2FormerSoftHead(BaseDecodeHead):
             # zero match
             loss_dice = mask_preds.sum()
             loss_mask = mask_preds.sum()
-            return loss_cls, loss_mask, loss_dice
+            loss_soft = soft_mask_preds.sum()
+            return loss_cls, loss_mask, loss_dice, loss_soft
 
         with torch.no_grad():
             points_coords = get_uncertain_point_coords_with_randomness(
@@ -384,9 +398,14 @@ class Mask2FormerSoftHead(BaseDecodeHead):
             # shape (num_total_gts, h, w) -> (num_total_gts, num_points)
             mask_point_targets = point_sample(
                 mask_targets.unsqueeze(1).float(), points_coords).squeeze(1)
+            soft_mask_point_targets = point_sample(
+                soft_mask_targets.unsqueeze(1).float(), points_coords).squeeze(1)
         # shape (num_queries, h, w) -> (num_queries, num_points)
         mask_point_preds = point_sample(
             mask_preds.unsqueeze(1), points_coords).squeeze(1)
+        # shape (num_queries, h, w) -> (num_queries, num_points)
+        soft_mask_point_preds = point_sample(
+            soft_mask_preds.unsqueeze(1), points_coords).squeeze(1)
 
         # dice loss
         loss_dice = self.loss_dice(
@@ -401,30 +420,16 @@ class Mask2FormerSoftHead(BaseDecodeHead):
             mask_point_preds,
             mask_point_targets,
             avg_factor=num_total_masks * self.num_points)
-        # print(mask_preds.shape, soft_preds.shape)
 
-        with torch.no_grad():
-            points_coords = get_uncertain_point_coords_with_randomness(
-                soft_mask_preds.unsqueeze(1), None, self.num_points,
-                self.oversample_ratio, self.importance_sample_ratio)
-            # shape (num_total_gts, h, w) -> (num_total_gts, num_points)
-            soft_point_targets = point_sample(
-                soft_mask_targets.unsqueeze(1).float(), points_coords).squeeze(1)
-        # shape (num_queries, h, w) -> (num_queries, num_points)
-        soft_point_preds = point_sample(
-            soft_mask_preds.unsqueeze(1), points_coords).squeeze(1)
-
+        # soft mask loss
         # shape (num_queries, num_points) -> (num_queries * num_points, )
-        soft_point_preds = soft_point_preds.reshape(-1, 1)
+        soft_mask_point_preds = soft_mask_point_preds.reshape(-1, 1)
         # shape (num_total_gts, num_points) -> (num_total_gts * num_points, )
-        soft_point_targets = soft_point_targets.reshape(-1)
-
-        # print(soft_point_preds.shape, soft_point_targets.shape)
-
+        soft_mask_point_targets = soft_mask_point_targets.reshape(-1)
         loss_soft = self.loss_soft(
-            soft_point_preds,
-            soft_point_targets
-        )
+            soft_mask_point_preds,
+            soft_mask_point_targets,
+            avg_factor=num_total_masks * self.num_points)
 
         return loss_cls, loss_mask, loss_dice, loss_soft
 
@@ -439,10 +444,14 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                 cls_out_channels].
             all_mask_preds (Tensor): Mask scores for all decoder layers with
                 shape [num_decoder, batch_size, num_queries, h, w].
+            all_soft_mask_preds (Tensor): Soft mask scores for all decoder layers with
+                shape [num_decoder, batch_size, num_queries, h, w].
             gt_labels_list (list[Tensor]): Ground truth class indices for each
                 image with shape (n, ). n is the sum of number of stuff type
                 and number of instance in a image.
             gt_masks_list (list[Tensor]): Ground truth mask for each image with
+                shape (n, h, w).
+            gt_soft_masks_list (list[Tensor]): Ground truth soft mask for each image with
                 shape (n, h, w).
             img_metas (list[dict]): List of image meta information.
 
@@ -453,18 +462,6 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         all_gt_labels_list = [gt_labels_list for _ in range(num_dec_layers)]
         all_gt_masks_list = [gt_masks_list for _ in range(num_dec_layers)]
         all_gt_soft_masks_list = [gt_soft_masks_list for _ in range(num_dec_layers)]
-        # for i in all_gt_labels_list[0]:
-        #     print(i.shape, 'labels')
-        # for i in all_gt_masks_list[0]:
-        #     print(i.shape, 'masks')
-        # for i in all_gt_soft_list[0]:
-        #     print(i.shape, 'softs')
-        # for i in all_cls_scores:
-        #     print(i.shape, 'cls preds')
-        # for i in all_mask_preds:
-        #     print(i.shape, 'mask preds')
-        # for i in all_soft_preds:
-        #     print(i.shape, 'soft preds')
         img_metas_list = [img_metas for _ in range(num_dec_layers)]
         losses_cls, losses_mask, losses_dice, losses_soft = multi_apply(
             self.loss_single, all_cls_scores, all_mask_preds, all_soft_mask_preds,
@@ -504,6 +501,8 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                 Note `cls_out_channels` should includes background.
             - mask_pred (Tensor): Mask scores in shape \
                 (batch_size, num_queries,h, w).
+            - soft_mask_pred (Tensor): Soft mask scores in shape \
+                (batch_size, num_queries,h, w).
             - attn_mask (Tensor): Attention mask in shape \
                 (batch_size * num_heads, num_queries, h, w).
         """
@@ -516,12 +515,11 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         # shape (num_queries, batch_size, h, w)
         mask_pred = torch.einsum('bqc,bchw->bqhw', mask_embed, mask_feature)
         # shape (num_queries, batch_size, c)
-        soft_mask_embed = self.soft_embed(decoder_out)
+        soft_mask_embed = self.soft_mask_embed(decoder_out)
         # shape (num_queries, batch_size, h, w)
         soft_mask_pred = torch.einsum('bqc,bchw->bqhw', soft_mask_embed, mask_feature)
-
         attn_mask = F.interpolate(
-            mask_pred,
+            mask_pred, #  TODO: try using the soft mask pred here
             attn_mask_target_size,
             mode='bilinear',
             align_corners=False)
@@ -550,6 +548,9 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                 (batch_size, num_queries, cls_out_channels). \
                 Note `cls_out_channels` should includes background.
             - mask_pred_list (list[Tensor]): Mask logits for each \
+                decoder layer. Each with shape (batch_size, num_queries, \
+                 h, w).
+            - soft_mask_pred_list (list[Tensor]): Soft mask logits for each \
                 decoder layer. Each with shape (batch_size, num_queries, \
                  h, w).
         """
@@ -608,13 +609,13 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                 query_key_padding_mask=None,
                 # here we do not apply masking on padded region
                 key_padding_mask=None)
-            cls_pred, mask_pred, soft_pred, attn_mask = self.forward_head(
+            cls_pred, mask_pred, soft_mask_pred, attn_mask = self.forward_head(
                 query_feat, mask_features, multi_scale_memorys[
                     (i + 1) % self.num_transformer_feat_level].shape[-2:])
 
             cls_pred_list.append(cls_pred)
             mask_pred_list.append(mask_pred)
-            soft_mask_pred_list.append(soft_pred)
+            soft_mask_pred_list.append(soft_mask_pred)
 
         return cls_pred_list, mask_pred_list, soft_mask_pred_list
 
@@ -634,25 +635,13 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                 each box, shape (num_gts,).
             gt_masks (list[BitmapMasks]): Each element is masks of instances
                 of a image, shape (num_gts, h, w).
-            gt_soft_masks (list[SoftMasks]): Each element is masks of instances
+            gt_soft_masks (list[BitmapMasks]): Each element is soft masks of instances
                 of a image, shape (num_gts, h, w).
 
         Returns:
             losses (dict[str, Tensor]): a dictionary of loss components
         """
 
-        # print('gt_semantic')
-        # for i in gt_semantic_seg:
-        #     print(i.shape)
-        # print('gt_labels')
-        # for i in gt_labels:
-        #     print(i.shape)
-        # print('gt_masks')
-        # for i in gt_masks:
-        #     print(i.shape)
-        # print('gt_soft_seg')
-        # for i in gt_soft_seg:
-        #     print(i.shape)
         # forward
         all_cls_scores, all_mask_preds, all_soft_mask_preds = self(x, img_metas)
 
@@ -676,19 +665,12 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         Returns:
             seg_mask (Tensor): Predicted semantic segmentation logits.
         """
-        all_cls_scores, all_mask_preds, all_soft_preds = self(inputs, img_metas)
-        cls_score, mask_pred, soft_pred = all_cls_scores[-1], all_mask_preds[-1], all_soft_preds[-1]
+        all_cls_scores, all_mask_preds = self(inputs, img_metas)
+        cls_score, mask_pred = all_cls_scores[-1], all_mask_preds[-1]
         ori_h, ori_w, _ = img_metas[0]['ori_shape']
-
-        # print(mask_pred.shape, soft_pred.shape, cls_score.shape)
 
         # semantic inference
         cls_score = F.softmax(cls_score, dim=-1)[..., :-1]
-        # print(cls_score.shape)
         mask_pred = mask_pred.sigmoid()
         seg_mask = torch.einsum('bqc,bqhw->bchw', cls_score, mask_pred)
-        # print(seg_mask.shape)
-        # for i in soft_pred[0]:
-        #     cv2.imshow('pred', i.cpu().numpy())
-        #     cv2.waitKey(0)
         return seg_mask

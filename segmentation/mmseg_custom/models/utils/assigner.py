@@ -61,16 +61,20 @@ class MaskHungarianAssigner(BaseAssigner):
     def __init__(self,
                  cls_cost=dict(type='ClassificationCost', weight=1.0),
                  dice_cost=dict(type='DiceCost', weight=1.0),
-                 mask_cost=dict(type='MaskFocalCost', weight=1.0)):
+                 mask_cost=dict(type='MaskFocalCost', weight=1.0),
+                 soft_cost=dict(type='CrossEntropyLossCost', weight=1.0)):
         self.cls_cost = build_match_cost(cls_cost)
         self.dice_cost = build_match_cost(dice_cost)
         self.mask_cost = build_match_cost(mask_cost)
+        self.soft_cost = build_match_cost(soft_cost)
 
     def assign(self,
                cls_pred,
                mask_pred,
+               soft_mask_pred,
                gt_labels,
                gt_masks,
+               gt_soft_masks,
                img_meta,
                gt_masks_ignore=None,
                eps=1e-7):
@@ -91,9 +95,11 @@ class MaskHungarianAssigner(BaseAssigner):
 
         Args:
             mask_pred (Tensor): Predicted mask, shape [num_query, h, w]
+            soft_mask_pred (Tensor): Predicted soft mask, shape [num_query, h, w]
             cls_pred (Tensor): Predicted classification logits, shape
                 [num_query, num_class].
             gt_masks (Tensor): Ground truth mask, shape [num_gt, h, w].
+            gt_soft_masks (Tensor): Ground truth soft mask, shape [num_gt, h, w].
             gt_labels (Tensor): Label of `gt_masks`, shape (num_gt,).
             img_meta (dict): Meta information for current image.
             gt_masks_ignore (Tensor, optional): Ground truth masks that are
@@ -142,7 +148,13 @@ class MaskHungarianAssigner(BaseAssigner):
             dice_cost = self.dice_cost(mask_pred, gt_masks)
         else:
             dice_cost = 0
-        cost = cls_cost + mask_cost + dice_cost
+
+        if self.soft_cost.weight != 0:
+            soft_cost = self.soft_cost(soft_mask_pred, gt_soft_masks)
+        else:
+            soft_cost = 0
+
+        cost = cls_cost + mask_cost + dice_cost + soft_cost
 
         # 3. do Hungarian matching on CPU using linear_sum_assignment
         cost = cost.detach().cpu()
