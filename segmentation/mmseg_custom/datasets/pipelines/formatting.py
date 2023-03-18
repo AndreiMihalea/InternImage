@@ -100,13 +100,18 @@ class ToSoft:
         gt_masks = input_dict['gt_masks'].copy()
 
         gt_soft_masks = []
-        for gt_mask in gt_masks:
-            gt_mask_copy = gt_mask.copy()
-            for _ in range(self.num_iter):
-                gt_mask_copy = cv2.GaussianBlur(gt_mask_copy.astype(np.float32), self.kernel_size, self.std_dev)
-            gt_soft_masks.append(gt_mask_copy)
 
-        input_dict['gt_soft_masks'] = np.array(gt_soft_masks)
+        if len(gt_masks) == 0:
+            gt_soft_masks = np.empty((0,) + input_dict['pad_shape'][:-1], dtype=np.float32)
+            input_dict['gt_soft_masks'] = gt_soft_masks
+        else:
+            for gt_mask in gt_masks:
+                gt_mask_copy = gt_mask.copy()
+                for _ in range(self.num_iter):
+                    gt_mask_copy = cv2.GaussianBlur(gt_mask_copy.astype(np.float32), self.kernel_size, self.std_dev)
+                gt_soft_masks.append(gt_mask_copy)
+
+            input_dict['gt_soft_masks'] = np.array(gt_soft_masks)
 
         return input_dict
 

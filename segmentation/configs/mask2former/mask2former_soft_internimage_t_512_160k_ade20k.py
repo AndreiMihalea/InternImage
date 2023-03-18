@@ -25,13 +25,7 @@ model = dict(
         with_cp=False,
         out_indices=(0, 1, 2, 3),
         init_cfg=dict(type='Pretrained', checkpoint=pretrained)),
-    decode_head=dict(type='Mask2FormerSoftHead',
-                     in_channels=[64, 128, 256, 512],
-                     loss_soft=dict(
-                         type='CrossEntropyLoss',
-                         use_sigmoid=True,
-                         reduction='mean',
-                         loss_weight=5.0)),
+    decode_head=dict(in_channels=[64, 128, 256, 512]),
     test_cfg=dict(mode='whole')
 )
 img_norm_cfg = dict(

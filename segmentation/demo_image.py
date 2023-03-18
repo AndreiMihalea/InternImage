@@ -2,6 +2,7 @@
 from argparse import ArgumentParser
 
 import mmcv
+from mmseg.apis.inference import LoadImage
 
 import mmcv_custom  # noqa: F401,F403
 import mmseg_custom  # noqa: F401,F403
@@ -9,8 +10,48 @@ from mmseg.apis import inference_segmentor, init_segmentor, show_result_pyplot
 from mmseg.core.evaluation import get_palette
 from mmcv.runner import load_checkpoint
 from mmseg.core import get_classes
+from mmseg.datasets.pipelines import Compose
 import cv2
 import os.path as osp
+
+import torch
+from mmcv.parallel import collate, scatter
+
+
+def inference_segmentor_custom(model, imgs):
+    """Inference image(s) with the segmentor.
+
+    Args:
+        model (nn.Module): The loaded segmentor.
+        imgs (str/ndarray or list[str/ndarray]): Either image files or loaded
+            images.
+
+    Returns:
+        (list[Tensor]): The segmentation result.
+    """
+    cfg = model.cfg
+    device = next(model.parameters()).device  # model device
+    # build the data pipeline
+    test_pipeline = [LoadImage()] + cfg.data.test.pipeline[1:]
+    test_pipeline = Compose(test_pipeline)
+    # prepare data
+    data = []
+    imgs = imgs if isinstance(imgs, list) else [imgs]
+    for img in imgs:
+        img_data = dict(img=img)
+        img_data = test_pipeline(img_data)
+        data.append(img_data)
+    data = collate(data, samples_per_gpu=len(imgs))
+    if next(model.parameters()).is_cuda:
+        # scatter to specified GPU
+        data = scatter(data, [device])[0]
+    else:
+        data['img_metas'] = [i.data[0] for i in data['img_metas']]
+
+    # forward the model
+    with torch.no_grad():
+        result = model(return_loss=False, rescale=True, **data)
+    return result
 
 
 def main():
@@ -42,7 +83,7 @@ def main():
         model.CLASSES = get_classes(args.palette)
 
     # test a single image
-    result = inference_segmentor(model, args.img)
+    result = inference_segmentor_custom(model, args.img)
     # show the results
     if hasattr(model, 'module'):
         model = model.module
