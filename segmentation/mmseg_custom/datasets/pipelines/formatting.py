@@ -134,3 +134,4 @@ class LoadCategory(object):
 
         results['category'] = results['ann_info']['category']
         return results
+

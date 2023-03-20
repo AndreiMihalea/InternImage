@@ -5,4 +5,5 @@ from .transform import MapillaryHack, PadShortSide, SETR_Resize, PerspectiveAug
 __all__ = [
     'DefaultFormatBundle', 'ToMask', 'SETR_Resize', 'PadShortSide',
     'MapillaryHack', 'PerspectiveAug', 'LoadCategory'
+
 ]
