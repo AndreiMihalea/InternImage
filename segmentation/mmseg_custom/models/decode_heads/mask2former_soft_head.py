@@ -73,6 +73,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                  train_cfg=None,
                  test_cfg=None,
                  init_cfg=None,
+                 output_soft_head=False,
                  **kwargs):
         super(Mask2FormerSoftHead, self).__init__(
             in_channels=in_channels,
@@ -145,6 +146,8 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         self.loss_mask = build_loss(loss_mask)
         self.loss_dice = build_loss(loss_dice)
         self.loss_soft = build_loss(loss_soft)
+
+        self.output_soft_head = output_soft_head
 
     def init_weights(self):
         for m in self.decoder_input_projs:
@@ -669,7 +672,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         cls_score, mask_pred, soft_mask_pred = all_cls_scores[-1], all_mask_preds[-1], all_soft_mask_preds[-1]
         ori_h, ori_w, _ = img_metas[0]['ori_shape']
 
-        print(mask_pred.max(), mask_pred.shape, soft_mask_pred.shape, soft_mask_pred.max())
+        # print(mask_pred.max(), mask_pred.shape, soft_mask_pred.shape, soft_mask_pred.max())
 
         # semantic inference
         cls_score = F.softmax(cls_score, dim=-1)[..., :-1]
@@ -679,4 +682,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         soft_mask_pred = soft_mask_pred.sigmoid()
         seg_soft_mask = torch.einsum('bqc,bqhw->bchw', cls_score, soft_mask_pred)
 
-        return seg_mask
+        if self.output_soft_head:
+            return seg_mask, seg_soft_mask
+        else:
+            return seg_mask

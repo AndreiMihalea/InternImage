@@ -26,7 +26,8 @@ class EncoderDecoderMask2Former(BaseSegmentor):
                  train_cfg=None,
                  test_cfg=None,
                  pretrained=None,
-                 init_cfg=None):
+                 init_cfg=None,
+                 output_soft_head=False):
         super(EncoderDecoderMask2Former, self).__init__(init_cfg)
         if pretrained is not None:
             assert backbone.get('pretrained') is None, \
@@ -37,6 +38,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
             self.neck = builder.build_neck(neck)
         decode_head.update(train_cfg=train_cfg)
         decode_head.update(test_cfg=test_cfg)
+        self.output_soft_head = output_soft_head
         self._init_decode_head(decode_head)
         self._init_auxiliary_head(auxiliary_head)
 
@@ -50,6 +52,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         self.decode_head = builder.build_head(decode_head)
         self.align_corners = self.decode_head.align_corners
         self.num_classes = self.decode_head.num_classes
+        self.decode_head.output_soft_head = self.output_soft_head
 
     def _init_auxiliary_head(self, auxiliary_head):
         """Initialize ``auxiliary_head``"""

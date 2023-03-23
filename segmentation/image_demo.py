@@ -31,6 +31,9 @@ def main():
         type=float,
         default=0.5,
         help='Opacity of painted segmentation map. In (0, 1] range.')
+    parser.add_argument('--soft_output', type=str, action='store_true',
+                        help='Specifies whether the network gives a soft output')
+
     args = parser.parse_args()
 
     # build the model from a config file and a checkpoint file
@@ -41,6 +44,9 @@ def main():
         model.CLASSES = checkpoint['meta']['CLASSES']
     else:
         model.CLASSES = get_classes(args.palette)
+
+    if args.soft_output:
+        model.output_soft_head = True
         
     # test a single image
     result = inference_segmentor(model, args.img)
