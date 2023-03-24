@@ -75,13 +75,21 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
         x = self.extract_feat(img)
-        out = self._decode_head_forward_test(x, img_metas)
+        out, soft_out = self._decode_head_forward_test(x, img_metas)
         out = resize(
             input=out,
             size=img.shape[2:],
             mode='bilinear',
             align_corners=self.align_corners)
-        return out
+        soft_out = resize(
+            input=soft_out,
+            size=img.shape[2:],
+            mode='bilinear',
+            align_corners=self.align_corners)
+        if self.output_soft_head:
+            return out, soft_out
+        else:
+            return out
 
     def _decode_head_forward_train(self, x, img_metas, gt_semantic_seg,
                                    **kwargs):
@@ -223,7 +231,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
     def whole_inference(self, img, img_meta, rescale):
         """Inference with full image."""
 
-        seg_logit = self.encode_decode(img, img_meta)
+        seg_logit, soft_seg_logit = self.encode_decode(img, img_meta)
         if rescale:
             # support dynamic shape for onnx
             if torch.onnx.is_in_onnx_export():
@@ -236,8 +244,17 @@ class EncoderDecoderMask2Former(BaseSegmentor):
                 mode='bilinear',
                 align_corners=self.align_corners,
                 warning=False)
+            soft_seg_logit = resize(
+                soft_seg_logit,
+                size=size,
+                mode='bilinear',
+                align_corners=self.align_corners,
+                warning=False)
 
-        return seg_logit
+        if self.output_soft_head:
+            return seg_logit, soft_seg_logit
+        else:
+            return seg_logit
 
     def inference(self, img, img_meta, rescale):
         """Inference with slide/whole style.
@@ -259,33 +276,41 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         ori_shape = img_meta[0]['ori_shape']
         assert all(_['ori_shape'] == ori_shape for _ in img_meta)
         if self.test_cfg.mode == 'slide':
-            seg_logit = self.slide_inference(img, img_meta, rescale)
+            seg_logit, soft_seg_logit = self.slide_inference(img, img_meta, rescale)
         else:
-            seg_logit = self.whole_inference(img, img_meta, rescale)
+            seg_logit, soft_seg_logit = self.whole_inference(img, img_meta, rescale)
         output = F.softmax(seg_logit, dim=1)
+        soft_output = soft_seg_logit
         flip = img_meta[0]['flip']
         if flip:
             flip_direction = img_meta[0]['flip_direction']
             assert flip_direction in ['horizontal', 'vertical']
             if flip_direction == 'horizontal':
                 output = output.flip(dims=(3,))
+                soft_output = soft_output.flip(dims=(3,))
             elif flip_direction == 'vertical':
                 output = output.flip(dims=(2,))
+                soft_output = soft_output.flip(dims=(2,))
 
-        return output
+        return output, soft_output
 
     def simple_test(self, img, img_meta, rescale=True):
         """Simple test with single image."""
-        seg_logit = self.inference(img, img_meta, rescale)
+        seg_logit, soft_seg_logit = self.inference(img, img_meta, rescale)
         seg_pred = seg_logit.argmax(dim=1)
         if torch.onnx.is_in_onnx_export():
             # our inference backend only support 4D output
             seg_pred = seg_pred.unsqueeze(0)
             return seg_pred
         seg_pred = seg_pred.cpu().numpy()
+        soft_seg_logit = soft_seg_logit.cpu().numpy()
         # unravel batch dim
         seg_pred = list(seg_pred)
-        return seg_pred
+        soft_seg_logit = list(soft_seg_logit)
+        if self.output_soft_head:
+            return seg_pred, soft_seg_logit
+        else:
+            return seg_pred
 
     def aug_test(self, imgs, img_metas, rescale=True):
         """Test with augmentations.
