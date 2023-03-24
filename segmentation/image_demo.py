@@ -2,6 +2,7 @@
 from argparse import ArgumentParser
 
 import mmcv
+import numpy as np
 
 import mmcv_custom   # noqa: F401,F403
 import mmseg_custom   # noqa: F401,F403
@@ -103,8 +104,16 @@ def main():
     cv2.imwrite(out_path, img)
     print(f"Result is save at {out_path}")
 
-    for i in soft_result[0]:
-        cv2.imshow('img', i)
+    for it, soft_res in enumerate(soft_result[0]):
+        hard_res = result[result == it]
+        og_img = cv2.imread(args.img)
+        print(og_img.shape, hard_res.shape, soft_res.shape)
+        hard_res = hard_res[:, :, np.newaxis]
+        hard_res = np.repeat(hard_res, 3, axis=2)
+        soft_res = soft_res[:, :, np.newaxis]
+        soft_res = np.repeat(soft_res, 3, axis=2)
+        img_res = np.concatenate((og_img, hard_res, soft_res))
+        cv2.imshow('img', img_res)
         cv2.waitKey(0)
 
 if __name__ == '__main__':
