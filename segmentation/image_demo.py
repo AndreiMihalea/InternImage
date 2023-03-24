@@ -103,5 +103,9 @@ def main():
     cv2.imwrite(out_path, img)
     print(f"Result is save at {out_path}")
 
+    for i in soft_result[0]:
+        cv2.imshow('img', i)
+        cv2.waitKey(0)
+
 if __name__ == '__main__':
     main()
