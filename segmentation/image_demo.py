@@ -105,14 +105,15 @@ def main():
     print(f"Result is save at {out_path}")
 
     for it, soft_res in enumerate(soft_result[0]):
-        hard_res = result[result == it]
-        og_img = cv2.imread(args.img)
-        print(og_img.shape, hard_res.shape, soft_res.shape)
+        hard_res = result[0].copy()
+        hard_res[hard_res != it] = 0
+        hard_res[hard_res != 0] = 1
+        og_img = cv2.imread(args.img) / 255.
         hard_res = hard_res[:, :, np.newaxis]
         hard_res = np.repeat(hard_res, 3, axis=2)
         soft_res = soft_res[:, :, np.newaxis]
         soft_res = np.repeat(soft_res, 3, axis=2)
-        img_res = np.concatenate((og_img, hard_res, soft_res))
+        img_res = np.concatenate((og_img, hard_res, soft_res), axis=1)
         cv2.imshow('img', img_res)
         cv2.waitKey(0)
 
