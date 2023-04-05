@@ -175,7 +175,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         the outer list indicating test time augmentations.
         """
         # print(img[0].shape)
-        # cv2.imshow('img', img[0][0].cpu().numpy().transpose((1, 2, 0)))
+        # cv2.imshow('img', img[0].cpu().numpy().transpose((1, 2, 0)))
         # cv2.waitKey(0)
         if return_loss:
             return self.forward_train(img, img_metas, **kwargs)

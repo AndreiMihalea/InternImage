@@ -188,11 +188,10 @@ def build_dataloader(dataset,
 
 
 @DATASETS.register_module()
-class UPBDataset(CustomDataset):
-    CLASSES = ('path')
-    PALETTE = [[0, 0, 255]]
+class KITTIDataset(CustomDataset):
+    # CLASSES = ('everything', 'path')
     def __init__(self, split, **kwargs):
-        super(UPBDataset, self).__init__(
+        super(KITTIDataset, self).__init__(
             img_suffix='.png',
             seg_map_suffix='.png',
             split=split,
