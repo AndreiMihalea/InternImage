@@ -325,7 +325,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         Args:
             cls_scores (Tensor): Mask score logits from a single decoder layer
                 for all images. Shape (batch_size, num_queries,
-                cls_out_channels). Note `cls_out_channels` should includes
+                cls_out_channels). Note `cls_out_channels` should include
                 background.
             mask_preds (Tensor): Mask logits for a pixel decoder for all
                 images. Shape (batch_size, num_queries, h, w).
@@ -501,7 +501,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
 
             - cls_pred (Tensor): Classification scores in shape \
                 (batch_size, num_queries, cls_out_channels). \
-                Note `cls_out_channels` should includes background.
+                Note `cls_out_channels` should include background.
             - mask_pred (Tensor): Mask scores in shape \
                 (batch_size, num_queries,h, w).
             - soft_mask_pred (Tensor): Soft mask scores in shape \
@@ -549,7 +549,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
             - cls_pred_list (list[Tensor)]: Classification logits \
                 for each decoder layer. Each is a 3D-tensor with shape \
                 (batch_size, num_queries, cls_out_channels). \
-                Note `cls_out_channels` should includes background.
+                Note `cls_out_channels` should include background.
             - mask_pred_list (list[Tensor]): Mask logits for each \
                 decoder layer. Each with shape (batch_size, num_queries, \
                  h, w).
@@ -682,7 +682,4 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         soft_mask_pred = soft_mask_pred.sigmoid()
         seg_soft_mask = torch.einsum('bqc,bqhw->bchw', cls_score, soft_mask_pred)
 
-        if self.output_soft_head:
-            return seg_mask, seg_soft_mask
-        else:
-            return seg_mask
+        return seg_mask, seg_soft_mask

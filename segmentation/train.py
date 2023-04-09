@@ -96,6 +96,8 @@ def parse_args():
         '--auto-resume',
         action='store_true',
         help='resume from the latest checkpoint automatically.')
+    parser.add_argument('--soft_output', action='store_true',
+                        help='Specifies whether the network gives a soft output')
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
@@ -203,6 +205,10 @@ def main():
                             train_cfg=cfg.get('train_cfg'),
                             test_cfg=cfg.get('test_cfg'))
     model.init_weights()
+
+    if args.soft_output:
+        model.output_soft_head = True
+        model.decode_head.output_soft_head = True
 
     # SyncBN is not support for DP
     if not distributed:

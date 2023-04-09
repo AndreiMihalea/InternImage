@@ -55,12 +55,14 @@ class DefaultFormatBundle(object):
 @PIPELINES.register_module()
 class ToMask(object):
     """Transfer gt_semantic_seg to binary mask and generate gt_labels."""
-    def __init__(self, ignore_index=255):
+    def __init__(self, ignore_index=2):
         self.ignore_index = ignore_index
 
     def __call__(self, results):
         gt_semantic_seg = results['gt_semantic_seg']
+        gt_semantic_seg[gt_semantic_seg == 255] = 1
         gt_labels = np.unique(gt_semantic_seg)
+        # print(gt_labels)
         # remove ignored region
         gt_labels = gt_labels[gt_labels != self.ignore_index]
 
@@ -78,6 +80,12 @@ class ToMask(object):
 
         results['gt_labels'] = gt_labels
         results['gt_masks'] = gt_masks
+
+        # print(gt_masks.shape, 'shape here')
+        # for mask in gt_masks:
+        #     if mask.shape[0] != 0:
+        #         cv2.imshow("mask", mask.astype(np.float32))
+        #         cv2.waitKey(0)
 
         return results
 

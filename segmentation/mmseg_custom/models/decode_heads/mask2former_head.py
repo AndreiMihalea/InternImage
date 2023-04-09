@@ -273,7 +273,7 @@ class Mask2FormerHead(BaseDecodeHead):
         Args:
             cls_scores (Tensor): Mask score logits from a single decoder layer
                 for all images. Shape (batch_size, num_queries,
-                cls_out_channels). Note `cls_out_channels` should includes
+                cls_out_channels). Note `cls_out_channels` should include
                 background.
             mask_preds (Tensor): Mask logits for a pixel decoder for all
                 images. Shape (batch_size, num_queries, h, w).
@@ -415,7 +415,7 @@ class Mask2FormerHead(BaseDecodeHead):
 
             - cls_pred (Tensor): Classification scores in shape \
                 (batch_size, num_queries, cls_out_channels). \
-                Note `cls_out_channels` should includes background.
+                Note `cls_out_channels` should include background.
             - mask_pred (Tensor): Mask scores in shape \
                 (batch_size, num_queries,h, w).
             - attn_mask (Tensor): Attention mask in shape \
@@ -457,7 +457,7 @@ class Mask2FormerHead(BaseDecodeHead):
             - cls_pred_list (list[Tensor)]: Classification logits \
                 for each decoder layer. Each is a 3D-tensor with shape \
                 (batch_size, num_queries, cls_out_channels). \
-                Note `cls_out_channels` should includes background.
+                Note `cls_out_channels` should include background.
             - mask_pred_list (list[Tensor]): Mask logits for each \
                 decoder layer. Each with shape (batch_size, num_queries, \
                  h, w).

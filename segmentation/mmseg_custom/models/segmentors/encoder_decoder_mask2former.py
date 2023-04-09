@@ -1,5 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import warnings
+
 import cv2
+import mmcv
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -86,10 +90,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
             size=img.shape[2:],
             mode='bilinear',
             align_corners=self.align_corners)
-        if self.output_soft_head:
-            return out, soft_out
-        else:
-            return out
+        return out, soft_out
 
     def _decode_head_forward_train(self, x, img_metas, gt_semantic_seg,
                                    **kwargs):
@@ -148,6 +149,15 @@ class EncoderDecoderMask2Former(BaseSegmentor):
             dict[str, Tensor]: a dictionary of loss components
         """
 
+        # print(kwargs.keys(), 'kleyy')
+        # print(len(kwargs["gt_masks"]))
+        # print(kwargs["gt_masks"][0].shape)
+        #       # len(kwargs["gt_soft_masks"]), kwargs["gt_soft_masks"][0].shape,
+        # #       kwargs["gt_masks"][0].detach().cpu().numpy()[0].shape)
+        # cv2.imshow("mask", kwargs["gt_masks"][0].detach().cpu().numpy()[0].astype(np.uint8) * 255)
+        # cv2.waitKey(0)
+
+
         x = self.extract_feat(img)
 
         losses = dict()
@@ -197,6 +207,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         h_grids = max(h_img - h_crop + h_stride - 1, 0) // h_stride + 1
         w_grids = max(w_img - w_crop + w_stride - 1, 0) // w_stride + 1
         preds = img.new_zeros((batch_size, num_classes, h_img, w_img))
+        soft_preds = img.new_zeros((batch_size, num_classes, h_img, w_img))
         count_mat = img.new_zeros((batch_size, 1, h_img, w_img))
         for h_idx in range(h_grids):
             for w_idx in range(w_grids):
@@ -207,10 +218,13 @@ class EncoderDecoderMask2Former(BaseSegmentor):
                 y1 = max(y2 - h_crop, 0)
                 x1 = max(x2 - w_crop, 0)
                 crop_img = img[:, :, y1:y2, x1:x2]
-                crop_seg_logit = self.encode_decode(crop_img, img_meta)
+                crop_seg_logit, crop_soft_seg_logit = self.encode_decode(crop_img, img_meta)
                 preds += F.pad(crop_seg_logit,
                                (int(x1), int(preds.shape[3] - x2), int(y1),
                                 int(preds.shape[2] - y2)))
+                soft_preds += F.pad(crop_soft_seg_logit,
+                               (int(x1), int(soft_preds.shape[3] - x2), int(y1),
+                                int(soft_preds.shape[2] - y2)))
 
                 count_mat[:, :, y1:y2, x1:x2] += 1
         assert (count_mat == 0).sum() == 0
@@ -219,6 +233,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
             count_mat = torch.from_numpy(
                 count_mat.cpu().detach().numpy()).to(device=img.device)
         preds = preds / count_mat
+        soft_preds = soft_preds / count_mat
         if rescale:
             preds = resize(
                 preds,
@@ -226,7 +241,13 @@ class EncoderDecoderMask2Former(BaseSegmentor):
                 mode='bilinear',
                 align_corners=self.align_corners,
                 warning=False)
-        return preds
+            soft_preds = resize(
+                soft_preds,
+                size=img_meta[0]['ori_shape'][:2],
+                mode='bilinear',
+                align_corners=self.align_corners,
+                warning=False)
+        return preds, soft_preds
 
     def whole_inference(self, img, img_meta, rescale):
         """Inference with full image."""
@@ -251,10 +272,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
                 align_corners=self.align_corners,
                 warning=False)
 
-        if self.output_soft_head:
-            return seg_logit, soft_seg_logit
-        else:
-            return seg_logit
+        return seg_logit, soft_seg_logit
 
     def inference(self, img, img_meta, rescale):
         """Inference with slide/whole style.
@@ -330,3 +348,79 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         # unravel batch dim
         seg_pred = list(seg_pred)
         return seg_pred
+
+    def show_result(self,
+                    img,
+                    result,
+                    palette=None,
+                    win_name='',
+                    show=False,
+                    wait_time=0,
+                    out_file=None,
+                    opacity=0.5):
+        """Draw `result` over `img`.
+
+        Args:
+            img (str or Tensor): The image to be displayed.
+            result (Tensor): The semantic segmentation results to draw over
+                `img`.
+            palette (list[list[int]]] | np.ndarray | None): The palette of
+                segmentation map. If None is given, random palette will be
+                generated. Default: None
+            win_name (str): The window name.
+            wait_time (int): Value of waitKey param.
+                Default: 0.
+            show (bool): Whether to show the image.
+                Default: False.
+            out_file (str or None): The filename to write the image.
+                Default: None.
+            opacity(float): Opacity of painted segmentation map.
+                Default 0.5.
+                Must be in (0, 1] range.
+        Returns:
+            img (Tensor): Only if not `show` or `out_file`
+        """
+        img = mmcv.imread(img)
+        img = img.copy()
+        seg = result[0]
+        if palette is None:
+            if self.PALETTE is None:
+                # Get random state before set seed,
+                # and restore random state later.
+                # It will prevent loss of randomness, as the palette
+                # may be different in each iteration if not specified.
+                # See: https://github.com/open-mmlab/mmdetection/issues/5844
+                state = np.random.get_state()
+                np.random.seed(42)
+                # random palette
+                palette = np.random.randint(
+                    0, 255, size=(len(self.CLASSES), 3))
+                np.random.set_state(state)
+            else:
+                palette = self.PALETTE
+        palette = np.array(palette)
+        assert palette.shape[0] == len(self.CLASSES)
+        assert palette.shape[1] == 3
+        assert len(palette.shape) == 2
+        assert 0 < opacity <= 1.0
+        color_seg = np.zeros((seg.shape[0], seg.shape[1], 3), dtype=np.uint8)
+        for label, color in enumerate(palette):
+            color_seg[seg == label, :] = color
+        # convert to BGR
+        color_seg = color_seg[..., ::-1]
+
+        img = img * (1 - opacity) + color_seg * opacity
+        img = img.astype(np.uint8)
+        # if out_file specified, do not show image in window
+        if out_file is not None:
+            show = False
+
+        if show:
+            mmcv.imshow(img, win_name, wait_time)
+        if out_file is not None:
+            mmcv.imwrite(img, out_file)
+
+        if not (show or out_file):
+            warnings.warn('show==False and out_file is not specified, only '
+                          'result image will be returned')
+            return img

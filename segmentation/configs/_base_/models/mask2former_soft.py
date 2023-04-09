@@ -1,5 +1,5 @@
-num_things_classes = 0
-num_stuff_classes = 1
+num_things_classes = 100
+num_stuff_classes = 50
 num_classes = num_things_classes + num_stuff_classes
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 model = dict(

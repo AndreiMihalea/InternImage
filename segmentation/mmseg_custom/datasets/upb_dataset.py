@@ -189,8 +189,8 @@ def build_dataloader(dataset,
 
 @DATASETS.register_module()
 class UPBDataset(CustomDataset):
-    CLASSES = ('path')
-    PALETTE = [[0, 0, 255]]
+    CLASSES = ('rest', 'path')
+    PALETTE = [[0, 0, 255], [255, 0, 0]]
     def __init__(self, split, **kwargs):
         super(UPBDataset, self).__init__(
             img_suffix='.png',

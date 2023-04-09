@@ -7,6 +7,9 @@ _base_ = [
     '../_base_/models/mask2former_soft.py', '../_base_/datasets/kitti.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
 ]
+num_things_classes = 0
+num_stuff_classes = 2
+num_classes = num_things_classes + num_stuff_classes
 crop_size = (288, 640)
 pretrained = 'https://github.com/OpenGVLab/InternImage/releases/download/cls_model/internimage_xl_22k_192to384.pth'
 model = dict(
@@ -28,6 +31,8 @@ model = dict(
         init_cfg=dict(type='Pretrained', checkpoint=pretrained)),
     decode_head=dict(
         type='Mask2FormerSoftHead',
+        num_things_classes=num_things_classes,
+        num_stuff_classes=num_stuff_classes,
         in_channels=[192, 384, 768, 1536],
         feat_channels=1024,
         out_channels=1024,
@@ -94,7 +99,13 @@ model = dict(
                 feedforward_channels=4096,
                 operation_order=('cross_attn', 'norm', 'self_attn', 'norm',
                                  'ffn', 'norm')),
-            init_cfg=None)
+            init_cfg=None),
+        loss_cls=dict(
+            type='CrossEntropyLoss',
+            use_sigmoid=False,
+            loss_weight=2.0,
+            reduction='mean',
+            class_weight=[1.0] * num_classes + [0.1]),
     ),
     test_cfg=dict(mode='slide', crop_size=crop_size, stride=(426, 426)))
 
@@ -112,7 +123,7 @@ lr_config = dict(_delete_=True, policy='poly',
                  warmup_ratio=1e-6,
                  power=1.0, min_lr=0.0, by_epoch=False)
 # By default, models are trained on 8 GPUs with 2 images per GPU
-data = dict(samples_per_gpu=2)
+data = dict(samples_per_gpu=2, workers_per_gpu=4)
 runner = dict(type='IterBasedRunner')
 optimizer_config = dict(_delete_=True, grad_clip=dict(max_norm=0.1, norm_type=2))
 checkpoint_config = dict(by_epoch=False, interval=1000, max_keep_ckpts=1)

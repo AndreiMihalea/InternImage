@@ -4,8 +4,8 @@ from argparse import ArgumentParser
 import mmcv
 import numpy as np
 
-import mmcv_custom   # noqa: F401,F403
-import mmseg_custom   # noqa: F401,F403
+import mmcv_custom  # noqa: F401,F403
+import mmseg_custom  # noqa: F401,F403
 from mmseg.apis import inference_segmentor, init_segmentor, show_result_pyplot
 from mmseg.apis.inference import LoadImage
 from mmseg.core.evaluation import get_palette
@@ -79,7 +79,7 @@ def main():
     args = parser.parse_args()
 
     # build the model from a config file and a checkpoint file
-    
+
     model = init_segmentor(args.config, checkpoint=None, device=args.device)
     checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
     if 'CLASSES' in checkpoint.get('meta', {}):
@@ -93,21 +93,25 @@ def main():
 
     # test a single image
     result, soft_result = inference_segmentor(model, args.img)
+    print(result[0].shape, soft_result[0].shape)
     # show the results
     if hasattr(model, 'module'):
         model = model.module
+    print(model.CLASSES, np.array([[255, 0, 0]]).shape[0])
+    # model.CLASSES = [model.CLASSES]
     img = model.show_result(args.img, result,
-                            palette=get_palette(args.palette),
+                            palette=[[255, 0, 0], [0, 0, 255]],  # get_palette(args.palette),
                             show=False, opacity=args.opacity)
     mmcv.mkdir_or_exist(args.out)
     out_path = osp.join(args.out, osp.basename(args.img))
     cv2.imwrite(out_path, img)
-    print(f"Result is save at {out_path}")
+    print(f"Result is saved at {out_path}")
 
     for it, soft_res in enumerate(soft_result[0]):
         hard_res = result[0].copy()
-        hard_res[hard_res != it] = 0
-        hard_res[hard_res != 0] = 1
+        print(hard_res.max(), hard_res.min())
+        # hard_res[hard_res != it] = 0
+        # hard_res[hard_res == 0] = 1
         og_img = cv2.imread(args.img) / 255.
         hard_res = hard_res[:, :, np.newaxis]
         hard_res = np.repeat(hard_res, 3, axis=2)
@@ -115,7 +119,11 @@ def main():
         soft_res = np.repeat(soft_res, 3, axis=2)
         img_res = np.concatenate((og_img, hard_res, soft_res), axis=1)
         cv2.imshow('img', img_res)
-        cv2.waitKey(0)
+        while True:
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+
 
 if __name__ == '__main__':
     main()
