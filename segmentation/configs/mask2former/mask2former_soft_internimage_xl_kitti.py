@@ -10,7 +10,7 @@ _base_ = [
 num_things_classes = 0
 num_stuff_classes = 2
 num_classes = num_things_classes + num_stuff_classes
-crop_size = (288, 640)
+crop_size = (340, 800)
 pretrained = 'https://github.com/OpenGVLab/InternImage/releases/download/cls_model/internimage_xl_22k_192to384.pth'
 model = dict(
     backbone=dict(
@@ -109,8 +109,8 @@ model = dict(
     ),
     test_cfg=dict(mode='slide', crop_size=crop_size, stride=(426, 426)))
 
-img_norm_cfg = dict(
-    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
+# img_norm_cfg = dict(
+#     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
 optimizer = dict(
     _delete_=True, type='AdamW', lr=0.00002, betas=(0.9, 0.999), weight_decay=0.05,

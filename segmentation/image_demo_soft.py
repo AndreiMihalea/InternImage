@@ -91,11 +91,9 @@ def main():
         model.output_soft_head = True
         model.decode_head.output_soft_head = True
 
-    print(model)
-
     # test a single image
-    result = inference_segmentor(model, args.img)
-    print(result[0].max(), result[0].min())
+    result, soft_result = inference_segmentor(model, args.img)
+    print(result[0].shape, soft_result[0].shape)
     # show the results
     if hasattr(model, 'module'):
         model = model.module
@@ -108,6 +106,23 @@ def main():
     out_path = osp.join(args.out, osp.basename(args.img))
     cv2.imwrite(out_path, img)
     print(f"Result is saved at {out_path}")
+
+    for it, soft_res in enumerate(soft_result[0]):
+        hard_res = result[0].copy()
+        print(hard_res.max(), hard_res.min())
+        # hard_res[hard_res != it] = 0
+        # hard_res[hard_res == 0] = 1
+        og_img = cv2.imread(args.img) / 255.
+        hard_res = hard_res[:, :, np.newaxis]
+        hard_res = np.repeat(hard_res, 3, axis=2)
+        soft_res = soft_res[:, :, np.newaxis]
+        soft_res = np.repeat(soft_res, 3, axis=2)
+        img_res = np.concatenate((og_img, hard_res, soft_res), axis=1)
+        cv2.imshow('img', img_res)
+        while True:
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
 
 
 if __name__ == '__main__':

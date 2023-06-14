@@ -30,6 +30,12 @@ class DefaultFormatBundle(object):
 
         if 'img' in results:
             img = results['img']
+            # seg = results['gt_semantic_seg'].copy()
+            # seg = np.repeat(seg[:, :, np.newaxis], 3, axis=2)
+            # cv2.imshow("img", np.concatenate([img.astype(np.float32), seg.astype(np.float32)]))
+            # cv2.imshow("img", img.astype(np.float32))
+            # print(results['ann_info'], img.shape, seg.shape)
+            # cv2.waitKey(0)
             if len(img.shape) < 3:
                 img = np.expand_dims(img, -1)
             img = np.ascontiguousarray(img.transpose(2, 0, 1))
@@ -80,7 +86,7 @@ class ToMask(object):
 
         results['gt_labels'] = gt_labels
         results['gt_masks'] = gt_masks
-
+        # print(results.keys())
         # print(gt_masks.shape, 'shape here')
         # for mask in gt_masks:
         #     if mask.shape[0] != 0:

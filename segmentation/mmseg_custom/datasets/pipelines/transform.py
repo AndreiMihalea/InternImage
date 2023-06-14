@@ -1,9 +1,19 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import copy
+import inspect
+
 import cv2
 import mmcv
 import numpy as np
 import torch
 from mmseg.datasets.builder import PIPELINES
+
+try:
+    import albumentations
+    from albumentations import Compose
+except ImportError:
+    albumentations = None
+    Compose = None
 
 
 @PIPELINES.register_module()
@@ -353,6 +363,45 @@ class MapillaryHack(object):
 
 
 @PIPELINES.register_module()
+class CustomCrop:
+    def __init__(self, left, right, top, bot):
+        """
+        :param left: percentage to crop from the left
+        :param right: percentage to crop from the right
+        :param top: percentage to crop from the top
+        :param bot: percentage to crop from the bottom
+        """
+        self.left = left
+        self.right = right
+        self.top = top
+        self.bot = bot
+
+    def __call__(self, input_dict):
+        for key in ['img', 'gt_semantic_seg']:
+            if key not in input_dict:
+                continue
+
+            img = input_dict[key]
+            # unique_values = np.unique(img)
+
+            height, width = img.shape[:2]
+
+            crop_pixels_top = int(height * self.top)
+            crop_pixels_bottom = int(height * self.bot)
+            crop_pixels_left = int(width * self.left)
+            crop_pixels_right = int(width * self.right)
+
+            if len(input_dict[key].shape) == 3:
+                input_dict[key] = input_dict[key][crop_pixels_top:height-crop_pixels_bottom,
+                                  crop_pixels_left:width-crop_pixels_right, :]
+            else:
+                input_dict[key] = input_dict[key][crop_pixels_top:height - crop_pixels_bottom,
+                                  crop_pixels_left:width - crop_pixels_right]
+
+        return input_dict
+
+
+@PIPELINES.register_module()
 class PerspectiveAug:
     def __init__(self, k, m):
         """
@@ -440,7 +489,7 @@ class PerspectiveAug:
 
             # transformation object
             # after all transformation, for the old dataset we end up
-            border_value = (0, 0, 0) if len(img.shape) == 3 else 255
+            border_value = (0, 0, 0) if len(img.shape) == 3 else 0
             output = self.rotate_image(img, ry, k, m, border_value)
             output = self.translate_image(output, tx, k, m, border_value)
 
@@ -456,3 +505,146 @@ class PerspectiveAug:
             # cv2.waitKey(0)
 
         return input_dict
+
+
+@PIPELINES.register_module()
+class Albu:
+    """Albumentation augmentation. Adds custom transformations from
+    Albumentations library. Please, visit
+    `https://albumentations.readthedocs.io` to get more information. An example
+    of ``transforms`` is as followed:
+
+    .. code-block::
+        [
+            dict(
+                type='ShiftScaleRotate',
+                shift_limit=0.0625,
+                scale_limit=0.0,
+                rotate_limit=0,
+                interpolation=1,
+                p=0.5),
+            dict(
+                type='RandomBrightnessContrast',
+                brightness_limit=[0.1, 0.3],
+                contrast_limit=[0.1, 0.3],
+                p=0.2),
+            dict(type='ChannelShuffle', p=0.1),
+            dict(
+                type='OneOf',
+                transforms=[
+                    dict(type='Blur', blur_limit=3, p=1.0),
+                    dict(type='MedianBlur', blur_limit=3, p=1.0)
+                ],
+                p=0.1),
+        ]
+    Args:
+        transforms (list[dict]): A list of albu transformations
+        keymap (dict): Contains {'input key':'albumentation-style key'}
+        update_pad_shape (bool): Whether to update padding shape according to \
+            the output shape of the last transform
+    """
+
+    def __init__(self, transforms, keymap=None, update_pad_shape=False):
+        if Compose is None:
+            raise ImportError(
+                'albumentations is not installed, '
+                'we suggest install albumentation by '
+                '"pip install albumentations>=0.3.2 --no-binary qudida,albumentations"'  # noqa
+            )
+
+        # Args will be modified later, copying it will be safer
+        transforms = copy.deepcopy(transforms)
+
+        self.transforms = transforms
+        self.filter_lost_elements = False
+        self.update_pad_shape = update_pad_shape
+
+        self.aug = Compose([self.albu_builder(t) for t in self.transforms])
+
+        if not keymap:
+            self.keymap_to_albu = {
+                'img': 'image',
+                'gt_masks': 'masks',
+            }
+        else:
+            self.keymap_to_albu = copy.deepcopy(keymap)
+        self.keymap_back = {v: k for k, v in self.keymap_to_albu.items()}
+
+    def albu_builder(self, cfg):
+        """Import a module from albumentations.
+
+        It inherits some of :func:`build_from_cfg` logic.
+        Args:
+            cfg (dict): Config dict. It should at least contain the key "type".
+        Returns:
+            obj: The constructed object.
+        """
+
+        assert isinstance(cfg, dict) and 'type' in cfg
+        args = cfg.copy()
+
+        obj_type = args.pop('type')
+        if mmcv.is_str(obj_type):
+            if albumentations is None:
+                raise ImportError(
+                    'albumentations is not installed, '
+                    'we suggest install albumentation by '
+                    '"pip install albumentations>=0.3.2 --no-binary qudida,albumentations"'  # noqa
+                )
+            obj_cls = getattr(albumentations, obj_type)
+        elif inspect.isclass(obj_type):
+            obj_cls = obj_type
+        else:
+            raise TypeError(
+                f'type must be a str or valid type, but got {type(obj_type)}')
+
+        if 'transforms' in args:
+            args['transforms'] = [
+                self.albu_builder(transform)
+                for transform in args['transforms']
+            ]
+
+        return obj_cls(**args)
+
+    @staticmethod
+    def mapper(d, keymap):
+        """Dictionary mapper.
+
+        Renames keys according to keymap provided.
+        Args:
+            d (dict): old dict
+            keymap (dict): {'old_key':'new_key'}
+        Returns:
+            dict: new dict.
+        """
+
+        updated_dict = {}
+        for k, _ in zip(d.keys(), d.values()):
+            new_k = keymap.get(k, k)
+            updated_dict[new_k] = d[k]
+        return updated_dict
+
+    def __call__(self, results):
+        # dict to albumentations format
+        results = self.mapper(results, self.keymap_to_albu)
+
+        # Convert to RGB since Albumentations works with RGB images
+        results['image'] = cv2.cvtColor(results['image'], cv2.COLOR_BGR2RGB)
+
+        results = self.aug(**results)
+
+        # Convert back to BGR
+        results['image'] = cv2.cvtColor(results['image'], cv2.COLOR_RGB2BGR)
+
+        # back to the original format
+        results = self.mapper(results, self.keymap_back)
+
+        # update final shape
+        if self.update_pad_shape:
+            results['pad_shape'] = results['img'].shape
+
+        return results
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__ + f'(transforms={self.transforms})'
+        return repr_str
