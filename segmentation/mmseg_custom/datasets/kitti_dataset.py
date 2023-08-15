@@ -220,7 +220,7 @@ class KITTIDataset(CustomDataset):
         if split is not None:
             with open(split) as f:
                 for line in f:
-                    img_name, euler_pose = line.strip().split(',')
+                    img_name, euler_pose, euler_pose_diff = line.strip().split(',')
                     euler_pose = float(euler_pose)
                     img_info = dict(filename=img_name)
                     limits = [-float('inf'), -LIMIT_2, -LIMIT_1, LIMIT_1, LIMIT_2, float('inf')]
@@ -234,7 +234,7 @@ class KITTIDataset(CustomDataset):
                         img_info['ann'] = dict(seg_map=seg_map, euler_pose=euler_pose, category=category)
                     img_infos.append(img_info)
                 img_infos = sorted(img_infos, key=lambda x: x['filename'])
-            print(categories)
+            print(categories, 'cat')
         else:
             for img in mmcv.scandir(img_dir, img_suffix, recursive=True):
                 img_info = dict(filename=img)

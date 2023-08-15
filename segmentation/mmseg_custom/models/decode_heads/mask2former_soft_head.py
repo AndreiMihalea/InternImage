@@ -419,6 +419,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         mask_point_preds = mask_point_preds.reshape(-1,1)
         # shape (num_total_gts, num_points) -> (num_total_gts * num_points, )
         mask_point_targets = mask_point_targets.reshape(-1)
+        print(torch.unique(mask_point_preds), torch.unique(mask_point_targets), num_total_masks)
         loss_mask = self.loss_mask(
             mask_point_preds,
             mask_point_targets,

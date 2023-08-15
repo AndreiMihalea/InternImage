@@ -3,17 +3,15 @@ dataset_type = 'UPBDataset'
 data_root = '/raid/andreim/kitti/data_odometry_color/segmentation'
 img_norm_cfg = dict(
     mean=[89.497, 93.675, 92.645], std=[76.422, 78.611, 80.487], to_rgb=True)
-crop_size = (340, 800)
+crop_size = (200, 664)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', reduce_zero_label=False),
     dict(type='LoadCategory'),
-    dict(type='PerspectiveAug', k=[[0.58, 0, 0.5],
-                           [0, 1.92, 0.5],
-                           [0, 0, 1]],
-         m=[[1, 0, 0, 0.00], [0, 1, 0, 1.68], [0, 0, 1, 1.65], [0, 0, 0, 1]]),
-    dict(type='Resize', img_scale=(1360, 340), ratio_range=(0.5, 2.0)),
-    dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
+    # dict(type='PerspectiveAug', k=[[0.61, 0, 0.5], [0, 1.36, 0.5], [0, 0, 1]],
+    #      m=[[1, 0, 0, 0.00], [0, 1, 0, 1.65], [0, 0, 1, 1.54], [0, 0, 0, 1]]),
+    dict(type='Resize', img_scale=(664, 200), ratio_range=None),
+    # dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),
     dict(type='PhotoMetricDistortion'),
     dict(type='Normalize', **img_norm_cfg),
@@ -27,7 +25,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(1360, 340),
+        img_scale=(1152, 288),
         # img_ratios=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
         flip=False,
         transforms=[

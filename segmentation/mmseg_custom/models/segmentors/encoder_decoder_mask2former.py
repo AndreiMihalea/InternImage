@@ -184,10 +184,10 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         should be double nested (i.e.  List[Tensor], List[List[dict]]), with
         the outer list indicating test time augmentations.
         """
-        # print(img[0].shape)
-        # print(img[0].max(), img[0].min())
-        # cv2.imshow('img', img[0].cpu().numpy().transpose((1, 2, 0)))
-        # cv2.waitKey(0)
+        print(img[0].shape)
+        print(img[0].max(), img[0].min())
+        cv2.imshow('img', img[0].cpu().numpy().transpose((1, 2, 0)))
+        cv2.waitKey(0)
         if return_loss:
             return self.forward_train(img, img_metas, **kwargs)
         else:

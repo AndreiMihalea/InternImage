@@ -65,19 +65,19 @@ def train_segmentor_custom(model,
 
     # The specific dataloader settings
     train_loader_cfg = {**loader_cfg, **cfg.data.get('train_dataloader', {})}
-    data_loaders = [build_dataloader(ds, **train_loader_cfg) for ds in dataset]
+    data_loaders = [build_dataloader_train(ds, **train_loader_cfg) for ds in dataset]
 
-    categories = {x: 0 for x in range(6)}
-    for i, el in enumerate(data_loaders[0]):
-        if i % 100 == 0:
-            print(i)
-            print(categories)
-        for cat in el['category']:
-            cat = cat.item()
-            categories[cat] += 1
-
-    print(categories, 'categories', sum(categories.values()))
-    print(eh)
+    # categories = {x: 0 for x in range(6)}
+    # for i, el in enumerate(data_loaders[0]):
+    #     if i % 100 == 0:
+    #         print(i)
+    #         print(categories)
+    #     for cat in el['category']:
+    #         cat = cat.item()
+    #         categories[cat] += 1
+    #
+    # print(categories, 'categories', sum(categories.values()))
+    # print(eh)
 
     # put model on devices
     if distributed:
