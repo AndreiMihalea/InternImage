@@ -33,15 +33,15 @@ class DistributedWeightedSampler(Sampler):
         self.total_size = self.num_samples * self.num_replicas
         self.replacement = replacement
         self.shuffle = shuffle
-        print(rank , num_replicas, self.num_samples, self.total_size, self.replacement)
+        # print(rank , num_replicas, self.num_samples, self.total_size, self.replacement)
 
 
     def calculate_weights(self, targets):
         class_sample_count = torch.tensor(
             [(targets == t).sum() for t in torch.unique(targets, sorted=True)])
-        print(class_sample_count, 'class count')
+        # print(class_sample_count, 'class count')
         weight = 1. / class_sample_count.double()
-        print(weight, 'weights')
+        # print(weight, 'weights')
         samples_weight = torch.tensor([weight[t] for t in targets])
         return samples_weight
 
@@ -70,7 +70,7 @@ class DistributedWeightedSampler(Sampler):
         weights = self.calculate_weights(targets[self.rank:self.total_size:self.num_replicas])
 
         multinomial = torch.multinomial(weights, len(targets), replacement=self.replacement)
-        print(np.unique(multinomial))
+        # print(np.unique(multinomial))
         return iter(multinomial)
 
     def __len__(self):
@@ -310,12 +310,14 @@ def build_dataloader(dataset,
         DataLoader: A PyTorch dataloader.
     """
     targets = [x['ann']['category'] for x in dataset.img_infos]
+    print(dataset)
     class_weights = [1, 0.2, 0.02, 0.02, 0.2, 1.]
     weights = [class_weights[int(target)] for target in targets]
     # print(weights)
     sampler = BalanceClassSampler(targets)  # balanced
     # sampler = WeightedRandomSampler(weights, len(weights))  # extreme
     rank, world_size = get_dist_info()
+    # dist = False
     if dist:
         sampler = DistributedSamplerWrapper(sampler=sampler, rank=rank, num_replicas=world_size)
         shuffle = False
@@ -355,5 +357,4 @@ def build_dataloader(dataset,
             worker_init_fn=init_fn,
             drop_last=drop_last,
             **kwargs)
-
     return data_loader

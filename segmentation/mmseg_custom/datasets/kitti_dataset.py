@@ -220,7 +220,7 @@ class KITTIDataset(CustomDataset):
         if split is not None:
             with open(split) as f:
                 for line in f:
-                    img_name, euler_pose, euler_pose_diff = line.strip().split(',')
+                    img_name, euler_pose = line.strip().split(',')
                     euler_pose = float(euler_pose)
                     img_info = dict(filename=img_name)
                     limits = [-float('inf'), -LIMIT_2, -LIMIT_1, LIMIT_1, LIMIT_2, float('inf')]
@@ -275,7 +275,7 @@ class KITTIDataset(CustomDataset):
 
 def main():
     dataset_type = 'UPBDataset'
-    data_root = '/raid/andreim/nemodrive/upb_data/segmentation/'
+    data_root = '/mnt/datadisk/andreim/nemodrive/upb_data/segmentation/'
     img_norm_cfg = dict(
         mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
     crop_size = (512, 512)

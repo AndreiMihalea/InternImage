@@ -525,7 +525,7 @@ class Mask2FormerHead(BaseDecodeHead):
         return cls_pred_list, mask_pred_list
 
     def forward_train(self, x, img_metas, gt_semantic_seg, gt_labels,
-                      gt_masks):
+                      gt_masks, **kwargs):
         """Forward function for training mode.
 
         Args:
@@ -576,4 +576,4 @@ class Mask2FormerHead(BaseDecodeHead):
         cls_score = F.softmax(cls_score, dim=-1)[..., :-1]
         mask_pred = mask_pred.sigmoid()
         seg_mask = torch.einsum('bqc,bqhw->bchw', cls_score, mask_pred)
-        return seg_mask
+        return seg_mask, seg_mask

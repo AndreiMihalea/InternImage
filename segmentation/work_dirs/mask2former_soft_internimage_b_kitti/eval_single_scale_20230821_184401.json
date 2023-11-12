@@ -1,0 +1,12 @@
+{
+    "config": "configs/mask2former/mask2former_soft_internimage_b_kitti.py",
+    "metric": {
+        "aAcc": 0.9821,
+        "mIoU": 0.8120999999999999,
+        "mAcc": 0.8837,
+        "IoU.rest": 0.981500015258789,
+        "IoU.path": 0.6426000213623047,
+        "Acc.rest": 0.990999984741211,
+        "Acc.path": 0.7765000152587891
+    }
+}

@@ -1,6 +1,6 @@
 # dataset settings
 dataset_type = 'UPBDataset'
-data_root = '/raid/andreim/nemodrive/upb_data/segmentation'
+data_root = '/mnt/datadisk/andreim/nemodrive/upb_data/segmentation'
 img_norm_cfg = dict(
     mean=[0.442, 0.367, 0.433], std=[0.437, 0.415, 0.425], to_rgb=True)
 crop_size = (288, 640)

@@ -162,7 +162,7 @@ def compute_mean_std(data_path):
 
 def main():
     dataset_type = 'UPBDataset'
-    data_root = '/raid/andreim/kitti/data_odometry_color/segmentation'
+    data_root = '/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation'
     img_norm_cfg = dict(
         mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
     crop_size = (512, 512)
@@ -205,7 +205,7 @@ def main():
 
 
 if __name__ == '__main__':
-    data_path = '/raid/andreim/nemodrive/upb_data/segmentation/images'
+    data_path = '/mnt/datadisk/andreim/nemodrive/upb_data/segmentation/images'
     from mmcv.utils import Registry
     # print(DATASETS.module_dict)
     # print(compute_mean_std(data_path))

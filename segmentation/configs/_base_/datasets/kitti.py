@@ -1,6 +1,6 @@
 # dataset settings
 dataset_type = 'UPBDataset'
-data_root = '/raid/andreim/kitti/data_odometry_color/segmentation'
+data_root = '/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation'
 img_norm_cfg = dict(
     mean=[89.497, 93.675, 92.645], std=[76.422, 78.611, 80.487], to_rgb=True)
 crop_size = (200, 664)
@@ -19,13 +19,13 @@ train_pipeline = [
     dict(type='ToMask'),
     dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels', 'gt_soft_masks'])
+    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels', 'category'])
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(1152, 288),
+        img_scale=crop_size,
         # img_ratios=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
         flip=False,
         transforms=[
@@ -43,20 +43,20 @@ data = dict(
         type=dataset_type,
         data_root=data_root,
         img_dir='images',
-        ann_dir='self_supervised_labels',
-        split='splits/val.txt',
+        ann_dir='self_supervised_labels_30',
+        split='splits/val_30.txt',
         pipeline=train_pipeline),
     val=dict(
         type=dataset_type,
         data_root=data_root,
         img_dir='images',
-        ann_dir='self_supervised_labels',
-        split='splits/train.txt',
+        ann_dir='/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation_gt/self_supervised_labels_30',
+        split='splits/test_30.txt',
         pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
         data_root=data_root,
         img_dir='images',
-        ann_dir='self_supervised_labels',
-        split='splits/test.txt',
+        ann_dir='/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation_gt/self_supervised_labels_30',
+        split='splits/test_30.txt',
         pipeline=test_pipeline))

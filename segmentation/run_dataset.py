@@ -62,7 +62,7 @@ def main():
     parser.add_argument('config', help='Config file')
     parser.add_argument('checkpoint', help='Checkpoint file')
     parser.add_argument('--dataset_path', help='Path to the dataset',
-                        default='/raid/andreim/kitti/data_odometry_color/segmentation/')
+                        default='/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation/')
     parser.add_argument('--split', help='Split of the dataset')
     parser.add_argument('--use-all-data', action='store_true', help='Whether to use all the data or just the split')
     parser.add_argument('--save-good-bad', action='store_true', help='Whether to save good and bad examples')
@@ -136,11 +136,12 @@ def main():
 
     total_matching_pixels = 0
     total_pixels = 0
-    for row in tqdm(split_data):
+    for row in tqdm(split_data[6000:]):
+        row = row.strip()
+        image_file, angle, _ = row.split(',')
+        # print(image_file)
         # if '09_' not in image_file:
         #     continue
-        row = row.strip()
-        image_file, angle = row.split(',')
         angle = float(angle)
         image_path_og = os.path.join(images_path, image_file)
         result = inference_segmentor_custom(model, image_path_og)
@@ -182,6 +183,8 @@ def main():
         out_path = osp.join(args.out, osp.basename(image_path_og))
         # cv2.imwrite(out_path, img)
         img_og = cv2.imread(image_path_og)
+        img_og_cp_1 = cv2.imread(image_path_og)
+        img_og_cp_2 = cv2.imread(image_path_og)
 
         gt_label_2d = gt_label[:, :, 0]
         res_2d = res[:, :, 2]
@@ -204,14 +207,23 @@ def main():
 
         alpha = 1.
         beta = 1 - alpha
-        img_og[np.logical_or(gt_label_og, res_og) != 0] //= 3
-        img_res = cv2.addWeighted(res * 255, alpha, img_og, 1, 0.5)
-        img_res = cv2.addWeighted(ss_label * 255, alpha, img_res, 1, 0.5)
+        # img_og[np.logical_or(gt_label_og, res_og) != 0] //= 3
+        img_og_cp_1[res_og != 0] //= 2
+        img_og_cp_2[ss_label_og != 0] //= 2
+        img_res = cv2.addWeighted(res * 255, alpha, img_og_cp_1, 1, 0.5)
+        img_label = cv2.addWeighted(ss_label * 255, alpha, img_og_cp_2, 1, 0.5)
+
+        cv2.imshow('res', img_res)
+        cv2.waitKey(0)
+
+        cv2.imwrite(f'demo/synasc/{split}_demo_rgb.png', img_og)
+        cv2.imwrite(f'demo/synasc/{split}_demo_label.png', ss_label * 255)
+        cv2.imwrite(f'demo/synasc/{split}_demo_res.png', res * 255)
+        cv2.imwrite(f'demo/synasc/{split}_demo_rgb_label.png', img_label)
+        cv2.imwrite(f'demo/synasc/{split}_demo_rgb_res.png', img_res)
 
         if save_good_bad:
             if np.abs(angle) > 60 and iou > 0.55:
-                # cv2.imshow('res', img_res)
-                # cv2.waitKey(0)
                 cv2.imwrite(os.path.join("good", "tight", image_file), img_res)
             elif iou < 0.2:
                 cv2.imwrite(os.path.join("bad", "tight", image_file), img_res)

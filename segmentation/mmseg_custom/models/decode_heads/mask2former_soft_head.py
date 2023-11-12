@@ -419,7 +419,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         mask_point_preds = mask_point_preds.reshape(-1,1)
         # shape (num_total_gts, num_points) -> (num_total_gts * num_points, )
         mask_point_targets = mask_point_targets.reshape(-1)
-        print(torch.unique(mask_point_preds), torch.unique(mask_point_targets), num_total_masks)
+        # print(torch.unique(mask_point_preds), torch.unique(mask_point_targets), num_total_masks)
         loss_mask = self.loss_mask(
             mask_point_preds,
             mask_point_targets,
@@ -624,7 +624,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         return cls_pred_list, mask_pred_list, soft_mask_pred_list
 
     def forward_train(self, x, img_metas, gt_semantic_seg, gt_labels,
-                      gt_masks, gt_soft_masks):
+                      gt_masks, gt_soft_masks, **kwargs):
         """Forward function for training mode.
 
         Args:
