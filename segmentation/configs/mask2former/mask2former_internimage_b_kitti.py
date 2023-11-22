@@ -29,11 +29,12 @@ model = dict(
         with_cp=False,
         out_indices=(0, 1, 2, 3),
         init_cfg=dict(type='Pretrained', checkpoint=pretrained)),
+    additional_input='category',
     decode_head=dict(
         type='Mask2FormerHead',
         num_things_classes=num_things_classes,
         num_stuff_classes=num_stuff_classes,
-        in_channels=[112, 224, 448, 896],
+        in_channels=[113, 225, 449, 897],
         feat_channels=256,
         out_channels=256,
         num_queries=100,

@@ -24,6 +24,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
     """
     def __init__(self,
                  backbone,
+                 additional_input,
                  decode_head,
                  neck=None,
                  auxiliary_head=None,
@@ -40,6 +41,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         self.backbone = builder.build_backbone(backbone)
         if neck is not None:
             self.neck = builder.build_neck(neck)
+        self.additional_input = additional_input
         decode_head.update(train_cfg=train_cfg)
         decode_head.update(test_cfg=test_cfg)
         self.output_soft_head = output_soft_head
@@ -157,8 +159,13 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         # cv2.imshow("mask", kwargs["gt_masks"][0].detach().cpu().numpy()[0].astype(np.uint8) * 255)
         # cv2.waitKey(0)
 
-
         x = self.extract_feat(img)
+
+        if self.additional_input == 'category':
+            for it, feat in enumerate(x):
+                B, _, H, W = feat.shape
+                expanded_category = kwargs['category'].unsqueeze(1).unsqueeze(2).unsqueeze(3).expand(B, 1, H, W)
+                x[it] = torch.cat([x[it], expanded_category], dim=1)
 
         losses = dict()
 
