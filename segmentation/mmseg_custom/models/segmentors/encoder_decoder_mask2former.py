@@ -77,10 +77,24 @@ class EncoderDecoderMask2Former(BaseSegmentor):
             x = self.neck(x)
         return x
 
-    def encode_decode(self, img, img_metas):
+    def merge_additional_input(self, x, **kwargs):
+        if self.additional_input == 'category' or self.additional_input == 'curvature':
+            if isinstance(kwargs[self.additional_input], list):
+                kwargs[self.additional_input] = kwargs[self.additional_input][0]
+            for it, feat in enumerate(x):
+                B, _, H, W = feat.shape
+                expanded_category = kwargs[self.additional_input].unsqueeze(1).unsqueeze(2).unsqueeze(3).expand(B, 1, H, W)
+                x[it] = torch.cat([x[it], expanded_category], dim=1)
+        return x
+
+    def encode_decode(self, img, img_metas, **kwargs):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
         x = self.extract_feat(img)
+
+        if self.additional_input:
+            x = self.merge_additional_input(x, **kwargs)
+
         out, soft_out = self._decode_head_forward_test(x, img_metas)
         out = resize(
             input=out,
@@ -161,11 +175,8 @@ class EncoderDecoderMask2Former(BaseSegmentor):
 
         x = self.extract_feat(img)
 
-        if self.additional_input == 'category':
-            for it, feat in enumerate(x):
-                B, _, H, W = feat.shape
-                expanded_category = kwargs['category'].unsqueeze(1).unsqueeze(2).unsqueeze(3).expand(B, 1, H, W)
-                x[it] = torch.cat([x[it], expanded_category], dim=1)
+        if self.additional_input:
+            x = self.merge_additional_input(x, **kwargs)
 
         losses = dict()
 
@@ -201,7 +212,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
             return self.forward_test(img, img_metas, **kwargs)
 
     # TODO refactor
-    def slide_inference(self, img, img_meta, rescale):
+    def slide_inference(self, img, img_meta, rescale, **kwargs):
         """Inference by sliding-window with overlap.
 
         If h_crop > h_img or w_crop > w_img, the small patch will be used to
@@ -226,7 +237,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
                 y1 = max(y2 - h_crop, 0)
                 x1 = max(x2 - w_crop, 0)
                 crop_img = img[:, :, y1:y2, x1:x2]
-                crop_seg_logit, crop_soft_seg_logit = self.encode_decode(crop_img, img_meta)
+                crop_seg_logit, crop_soft_seg_logit = self.encode_decode(crop_img, img_meta, **kwargs)
                 preds += F.pad(crop_seg_logit,
                                (int(x1), int(preds.shape[3] - x2), int(y1),
                                 int(preds.shape[2] - y2)))
@@ -282,7 +293,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
 
         return seg_logit, soft_seg_logit
 
-    def inference(self, img, img_meta, rescale):
+    def inference(self, img, img_meta, rescale, **kwargs):
         """Inference with slide/whole style.
 
         Args:
@@ -302,9 +313,9 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         ori_shape = img_meta[0]['ori_shape']
         assert all(_['ori_shape'] == ori_shape for _ in img_meta)
         if self.test_cfg.mode == 'slide':
-            seg_logit, soft_seg_logit = self.slide_inference(img, img_meta, rescale)
+            seg_logit, soft_seg_logit = self.slide_inference(img, img_meta, rescale, **kwargs)
         else:
-            seg_logit, soft_seg_logit = self.whole_inference(img, img_meta, rescale)
+            seg_logit, soft_seg_logit = self.whole_inference(img, img_meta, rescale, **kwargs)
         output = F.softmax(seg_logit, dim=1)
         soft_output = soft_seg_logit
         flip = img_meta[0]['flip']
@@ -320,9 +331,9 @@ class EncoderDecoderMask2Former(BaseSegmentor):
 
         return output, soft_output
 
-    def simple_test(self, img, img_meta, rescale=True):
+    def simple_test(self, img, img_meta, rescale=True, **kwargs):
         """Simple test with single image."""
-        seg_logit, soft_seg_logit = self.inference(img, img_meta, rescale)
+        seg_logit, soft_seg_logit = self.inference(img, img_meta, rescale, **kwargs)
         seg_pred = seg_logit.argmax(dim=1)
         if torch.onnx.is_in_onnx_export():
             # our inference backend only support 4D output

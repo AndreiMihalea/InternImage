@@ -147,5 +147,6 @@ class LoadCategory(object):
         """
 
         results['category'] = results['ann_info']['category']
+        results['curvature'] = results['ann_info']['curvature']
         return results
 
