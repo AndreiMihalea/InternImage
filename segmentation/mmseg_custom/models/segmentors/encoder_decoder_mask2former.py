@@ -48,6 +48,8 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         self._init_decode_head(decode_head)
         self._init_auxiliary_head(auxiliary_head)
 
+        self.text_embedding = nn.Embedding(7, 5)
+
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
 
@@ -78,13 +80,21 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         return x
 
     def merge_additional_input(self, x, **kwargs):
+        if isinstance(kwargs[self.additional_input], list):
+            kwargs[self.additional_input] = kwargs[self.additional_input][0]
+
         if self.additional_input == 'category' or self.additional_input == 'curvature':
-            if isinstance(kwargs[self.additional_input], list):
-                kwargs[self.additional_input] = kwargs[self.additional_input][0]
             for it, feat in enumerate(x):
                 B, _, H, W = feat.shape
-                expanded_category = kwargs[self.additional_input].unsqueeze(1).unsqueeze(2).unsqueeze(3).expand(B, 1, H, W)
-                x[it] = torch.cat([x[it], expanded_category], dim=1)
+                expanded_additional_input = kwargs[self.additional_input].unsqueeze(1).unsqueeze(2).unsqueeze(3).\
+                    expand(B, 1, H, W)
+                x[it] = torch.cat([x[it], expanded_additional_input], dim=1)
+        elif self.additional_input == 'scenario_text':
+            for it, feat in enumerate(x):
+                B, _, H, W = feat.shape
+                text_embedding = self.text_embedding(kwargs[self.additional_input])
+                print(text_embedding.shape)
+                x[it] = torch.cat([x[it], expanded_additional_input], dim=1)
         return x
 
     def encode_decode(self, img, img_metas, **kwargs):

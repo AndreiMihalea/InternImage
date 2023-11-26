@@ -29,6 +29,9 @@ import torch.distributed as dist
 
 
 LIMITS = [-80, -40, 0, 40, 80]
+LIMITS_SCENARIOS = [-80, -40, -10, 10, 40, 80]
+TURNING_SCENARIOS = ["EXTREMME LEFT", "TIGHT LEFT", "SLIGHT LEFT", "FORWARD", "SLIGHT RIGHT", "TIGHT RIGHT",
+                     "EXTREME RIGHT"]
 
 
 # @PIPELINES.register_module()
@@ -91,7 +94,10 @@ class UPBDataset(CustomDataset):
                     euler_pose = float(euler_pose)
                     img_info = dict(filename=img_name)
                     limits = [-float('inf'), *LIMITS, float('inf')]
+                    limits_scenarios = [-float('inf'), *LIMITS_SCENARIOS, float('inf')]
                     category = bisect.bisect_right(limits, euler_pose) - 1
+                    category_scenarios = bisect.bisect_right(limits_scenarios, euler_pose) - 1
+                    scenario = TURNING_SCENARIOS[category_scenarios]
                     if category in categories:
                         categories[category] += 1
                     else:
@@ -99,7 +105,7 @@ class UPBDataset(CustomDataset):
                     if ann_dir is not None:
                         seg_map = img_name
                         img_info['ann'] = dict(seg_map=seg_map, euler_pose=euler_pose, category=category,
-                                               curvature=int(euler_pose))
+                                               curvature=int(euler_pose), scenario_text=scenario)
                     img_infos.append(img_info)
                 img_infos = sorted(img_infos, key=lambda x: x['filename'])
             print(categories, sum(categories.values()), nr)

@@ -19,7 +19,8 @@ train_pipeline = [
     dict(type='ToMask'),
     dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels', 'category', 'curvature'])
+    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels', 'category', 'curvature',
+                               'scenario_text'])
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -34,7 +35,7 @@ test_pipeline = [
             dict(type='RandomFlip'),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='ImageToTensor', keys=['img']),
-            dict(type='Collect', keys=['img', 'category', 'curvature']),
+            dict(type='Collect', keys=['img', 'category', 'curvature', 'scenario_text']),
         ])
 ]
 data = dict(
