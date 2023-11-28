@@ -48,7 +48,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         self._init_decode_head(decode_head)
         self._init_auxiliary_head(auxiliary_head)
 
-        self.text_embedding = nn.Embedding(7, 5)
+        self.text_embedding = nn.Embedding(5, 10)
 
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
@@ -93,7 +93,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
             for it, feat in enumerate(x):
                 B, _, H, W = feat.shape
                 text_embedding = self.text_embedding(kwargs[self.additional_input])
-                print(text_embedding.shape)
+                expanded_additional_input = text_embedding.unsqueeze(2).unsqueeze(3). expand(B, 10, H, W)
                 x[it] = torch.cat([x[it], expanded_additional_input], dim=1)
         return x
 

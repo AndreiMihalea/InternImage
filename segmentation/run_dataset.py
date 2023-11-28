@@ -216,11 +216,11 @@ def main():
         cv2.imshow('res', img_res)
         cv2.waitKey(0)
 
-        cv2.imwrite(f'demo/synasc/{split}_demo_rgb.png', img_og)
-        cv2.imwrite(f'demo/synasc/{split}_demo_label.png', ss_label * 255)
-        cv2.imwrite(f'demo/synasc/{split}_demo_res.png', res * 255)
-        cv2.imwrite(f'demo/synasc/{split}_demo_rgb_label.png', img_label)
-        cv2.imwrite(f'demo/synasc/{split}_demo_rgb_res.png', img_res)
+        # cv2.imwrite(f'demo/synasc/{split}_demo_rgb.png', img_og)
+        # cv2.imwrite(f'demo/synasc/{split}_demo_label.png', ss_label * 255)
+        # cv2.imwrite(f'demo/synasc/{split}_demo_res.png', res * 255)
+        # cv2.imwrite(f'demo/synasc/{split}_demo_rgb_label.png', img_label)
+        # cv2.imwrite(f'demo/synasc/{split}_demo_rgb_res.png', img_res)
 
         if save_good_bad:
             if np.abs(angle) > 60 and iou > 0.55:

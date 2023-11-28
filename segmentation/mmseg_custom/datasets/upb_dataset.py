@@ -1,57 +1,22 @@
 import bisect
 import os
-import random
-from functools import partial
-
-import cv2
-import math
 import mmcv
 import numpy as np
-import torch
 from PIL import Image, ImageFile
 from tqdm import tqdm
 
-from segmentation.dist_utils import DistributedWeightedSampler, worker_init_fn, build_dataloader
+from segmentation.dist_utils import build_dataloader
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-from mmcv import Config, print_log
-from mmcv.parallel import collate
-from mmcv.runner import get_dist_info
-from mmcv.utils import digit_version
-from mmcv.parallel import DataContainer as DC
-from mmseg.datasets.builder import DATASETS, PIPELINES
+from mmcv import print_log
+from mmseg.datasets.builder import DATASETS
 from mmseg.datasets.custom import CustomDataset
 from mmseg.utils import get_root_logger
 
-from torch.utils.data import DataLoader, DistributedSampler, Sampler
-import torch.distributed as dist
-
-
 
 LIMITS = [-80, -40, 0, 40, 80]
-LIMITS_SCENARIOS = [-80, -40, -10, 10, 40, 80]
-TURNING_SCENARIOS = ["EXTREMME LEFT", "TIGHT LEFT", "SLIGHT LEFT", "FORWARD", "SLIGHT RIGHT", "TIGHT RIGHT",
-                     "EXTREME RIGHT"]
-
-
-# @PIPELINES.register_module()
-# class LoadCategory(object):
-#
-#     def __init__(self):
-#         pass
-#
-#     def __call__(self, results):
-#         """Call function to load multiple types annotations.
-#
-#         Args:
-#             results (dict): Result dict from :obj:`mmseg.CustomDataset`.
-#
-#         Returns:
-#             dict: The dict contains loaded semantic segmentation annotations.
-#         """
-#
-#         results['category'] = results['ann_info']['category']
-#         return results
+LIMITS_SCENARIOS = [-60, -18, 18, 60]
+TURNING_SCENARIOS = ["TIGHT LEFT", "SLIGHT LEFT", "FORWARD", "SLIGHT RIGHT", "TIGHT RIGHT"]
 
 
 @DATASETS.register_module()
@@ -105,7 +70,7 @@ class UPBDataset(CustomDataset):
                     if ann_dir is not None:
                         seg_map = img_name
                         img_info['ann'] = dict(seg_map=seg_map, euler_pose=euler_pose, category=category,
-                                               curvature=int(euler_pose), scenario_text=scenario)
+                                               curvature=int(euler_pose), scenario_text=category_scenarios)
                     img_infos.append(img_info)
                 img_infos = sorted(img_infos, key=lambda x: x['filename'])
             print(categories, sum(categories.values()), nr)
