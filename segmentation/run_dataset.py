@@ -1,4 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import bisect
 import os
 from argparse import ArgumentParser
 
@@ -21,13 +22,18 @@ import os.path as osp
 import torch
 
 
-def inference_segmentor_custom(model, imgs):
+LIMITS = [-80, -40, 0, 40, 80]
+LIMITS_SCENARIOS = [-60, -18, 18, 60]
+
+
+def inference_segmentor_custom(model, imgs, ann_info):
     """Inference image(s) with the segmentor.
 
     Args:
         model (nn.Module): The loaded segmentor.
         imgs (str/ndarray or list[str/ndarray]): Either image files or loaded
             images.
+        ann_info (dict): Dictionary of annotations
 
     Returns:
         (list[Tensor]): The segmentation result.
@@ -41,7 +47,7 @@ def inference_segmentor_custom(model, imgs):
     data = []
     imgs = imgs if isinstance(imgs, list) else [imgs]
     for img in imgs:
-        img_data = dict(img=img)
+        img_data = dict(img=img, ann_info=ann_info)
         img_data = test_pipeline(img_data)
         data.append(img_data)
     data = collate(data, samples_per_gpu=len(imgs))
@@ -59,8 +65,10 @@ def inference_segmentor_custom(model, imgs):
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('config', help='Config file')
-    parser.add_argument('checkpoint', help='Checkpoint file')
+    parser.add_argument('--config', help='Config file')
+    parser.add_argument('--checkpoint', help='Checkpoint file')
+    parser.add_argument('--additional_config', help='Config file of an optional second model', default=None)
+    parser.add_argument('--additional_checkpoint', help='Checkpoint file of an optional second model', default=None)
     parser.add_argument('--dataset_path', help='Path to the dataset',
                         default='/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation/')
     parser.add_argument('--split', help='Split of the dataset')
@@ -101,16 +109,27 @@ def main():
 
     model = init_segmentor(args.config, checkpoint=None, device=args.device)
     checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
+
+    if args.additional_config and args.additional_checkpoint:
+        additional_model = init_segmentor(args.additional_config, checkpoint=None, device=args.device)
+        additional_checkpoint = load_checkpoint(additional_model, args.additional_checkpoint, map_location='cpu')
+
     if 'CLASSES' in checkpoint.get('meta', {}):
         model.CLASSES = checkpoint['meta']['CLASSES']
     else:
         model.CLASSES = get_classes(args.palette)
 
+    if 'CLASSES' in additional_checkpoint.get('meta', {}):
+        additional_model.CLASSES = additional_checkpoint['meta']['CLASSES']
+    else:
+        additional_model.CLASSES = get_classes(args.palette)
+
     if args.soft_output:
         model.output_soft_head = True
         model.decode_head.output_soft_head = True
-
-    print(args.use_all_data)
+        if args.additional_config and args.additional_checkpoint:
+            additional_model.output_soft_head = True
+            additional_model.decode_head.output_soft_head = True
 
     horizon = args.horizon
     split = f'{args.split}_{horizon}'
@@ -136,55 +155,49 @@ def main():
 
     total_matching_pixels = 0
     total_pixels = 0
-    for row in tqdm(split_data[6000:]):
+
+    if args.additional_config and args.additional_checkpoint:
+        additional_model_total_intersection = 0
+        additional_model_total_union = 0
+
+        additional_model_total_matching_pixels  = 0
+        additional_model_total_pixels  = 0
+
+    for row in tqdm(split_data):
         row = row.strip()
-        image_file, angle, _ = row.split(',')
+        image_file, angle = row.split(',')
+        angle = float(angle)
+        limits = [-float('inf'), *LIMITS, float('inf')]
+        limits_scenarios = [-float('inf'), *LIMITS_SCENARIOS, float('inf')]
+        category = bisect.bisect_right(limits, angle) - 1
+        category_scenarios = bisect.bisect_right(limits_scenarios, angle) - 1
+        ann_info = {'category': category, 'curvature': int(angle), 'scenario_text': category_scenarios}
         # print(image_file)
         # if '09_' not in image_file:
         #     continue
-        angle = float(angle)
         image_path_og = os.path.join(images_path, image_file)
-        result = inference_segmentor_custom(model, image_path_og)
-        # print(np.unique(result[0]), result[0].shape, image_path)
-        res = result[0].copy()
-        # show the results
-        if hasattr(model, 'module'):
-            model = model.module
-        # model.CLASSES = [model.CLASSES]
-        img = model.show_result(image_path_og, result,
-                                palette=[[255, 0, 0], [0, 0, 255]],  # get_palette(args.palette),
-                                show=False, opacity=args.opacity)
         gt_path = image_path_og.replace('images', f'self_supervised_labels_{horizon}').replace('segmentation_scsfm',
-                                                                                                'segmentation_gt')
+                                                                                               'segmentation_gt')
+        label_path = image_path_og.replace('images', f'self_supervised_labels_{horizon}')
         if not os.path.exists(gt_path):
             continue
-        # print(gt_path)
+
         gt_label = cv2.imread(gt_path)
         gt_label_og = gt_label.copy()
         gt_label[:, :, 1] = 0
         gt_label[:, :, 2] = 0
-
-        label_path = image_path_og.replace('images', f'self_supervised_labels_{horizon}')
-        print(label_path)
-        # print()
 
         ss_label = cv2.imread(label_path)
         ss_label_og = ss_label.copy()
         ss_label[:, :, 0] = 0
         ss_label[:, :, 2] = 0
 
+        result = inference_segmentor_custom(model, image_path_og, ann_info)
+        res = result[0].copy()
         res = np.repeat(res[:, :, np.newaxis], repeats=3, axis=2).astype(np.uint8)
         res_og = res.copy()
         res[:, :, 0] = 0
         res[:, :, 1] = 0
-
-        # print(gt_label.shape, np.unique(gt_label), res.shape)
-        mmcv.mkdir_or_exist(args.out)
-        out_path = osp.join(args.out, osp.basename(image_path_og))
-        # cv2.imwrite(out_path, img)
-        img_og = cv2.imread(image_path_og)
-        img_og_cp_1 = cv2.imread(image_path_og)
-        img_og_cp_2 = cv2.imread(image_path_og)
 
         gt_label_2d = gt_label[:, :, 0]
         res_2d = res[:, :, 2]
@@ -197,13 +210,36 @@ def main():
         total_intersection += np.sum(intersection)
         total_union += np.sum(union)
 
-        # gt_label_mask = (gt_label_2d != 0).astype(np.uint8)
-        # res_mask = (res_2d != 0).astype(np.uint8)
-        # print(res_mask.shape, gt_label_mask.shape)
-
         mask = np.logical_and(gt_label_2d, res_2d)
         total_matching_pixels += np.sum((gt_label_2d == res_2d) * mask)
         total_pixels += np.sum(gt_label_2d)
+
+        if args.additional_config and args.additional_checkpoint:
+            additional_model_result = inference_segmentor_custom(additional_model, image_path_og, ann_info)
+            additional_model_res = additional_model_result[0].copy()
+            additional_model_res = np.repeat(additional_model_res[:, :, np.newaxis], repeats=3, axis=2).astype(np.uint8)
+            additional_model_res_og = additional_model_res.copy()
+            additional_model_res[:, :, 0] = 0
+            additional_model_res[:, :, 1] = 0
+
+            additional_model_res_2d = additional_model_res[:, :, 2]
+            additional_model_intersection = np.logical_and(gt_label_2d, additional_model_res_2d)
+            additional_model_union = np.logical_or(gt_label_2d, additional_model_res_2d)
+
+            additional_model_iou = np.sum(additional_model_intersection) / np.sum(additional_model_union) if \
+                np.sum(additional_model_union) > 0 else 0
+            additional_model_acc = np.sum(gt_label_2d == additional_model_res_2d) / (gt_label_2d.size)
+
+            additional_model_total_intersection += np.sum(additional_model_intersection)
+            additional_model_total_union += np.sum(additional_model_union)
+
+            additional_model_mask = np.logical_and(gt_label_2d, additional_model_res_2d)
+            additional_model_total_matching_pixels += \
+                np.sum((gt_label_2d == additional_model_res_2d) * additional_model_mask)
+            additional_model_total_pixels += np.sum(gt_label_2d)
+
+        img_og_cp_1 = cv2.imread(image_path_og)
+        img_og_cp_2 = cv2.imread(image_path_og)
 
         alpha = 1.
         beta = 1 - alpha
@@ -213,8 +249,8 @@ def main():
         img_res = cv2.addWeighted(res * 255, alpha, img_og_cp_1, 1, 0.5)
         img_label = cv2.addWeighted(ss_label * 255, alpha, img_og_cp_2, 1, 0.5)
 
-        cv2.imshow('res', img_res)
-        cv2.waitKey(0)
+        # cv2.imshow('res', img_res)
+        # cv2.waitKey(0)
 
         # cv2.imwrite(f'demo/synasc/{split}_demo_rgb.png', img_og)
         # cv2.imwrite(f'demo/synasc/{split}_demo_label.png', ss_label * 255)
@@ -237,6 +273,9 @@ def main():
                 cv2.imwrite(os.path.join("bad", "wide", image_file), img_res)
         # print(f"Result is saved at {out_path}")
     print(round(total_intersection / total_union * 100, 2), round(total_matching_pixels / total_pixels * 100, 2))
+    if args.additional_config and args.additional_checkpoint:
+        print(round(additional_model_total_intersection / additional_model_total_union * 100, 2),
+              round(additional_model_total_matching_pixels / additional_model_total_pixels * 100, 2))
 
 
 if __name__ == '__main__':

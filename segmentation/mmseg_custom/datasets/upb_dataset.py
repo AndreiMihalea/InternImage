@@ -62,7 +62,6 @@ class UPBDataset(CustomDataset):
                     limits_scenarios = [-float('inf'), *LIMITS_SCENARIOS, float('inf')]
                     category = bisect.bisect_right(limits, euler_pose) - 1
                     category_scenarios = bisect.bisect_right(limits_scenarios, euler_pose) - 1
-                    scenario = TURNING_SCENARIOS[category_scenarios]
                     if category in categories:
                         categories[category] += 1
                     else:
