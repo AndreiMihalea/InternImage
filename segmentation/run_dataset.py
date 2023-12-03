@@ -63,6 +63,10 @@ def inference_segmentor_custom(model, imgs, ann_info):
     return result
 
 
+alpha = 1.
+beta = 1 - alpha
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument('--config', help='Config file')
@@ -70,7 +74,7 @@ def main():
     parser.add_argument('--additional_config', help='Config file of an optional second model', default=None)
     parser.add_argument('--additional_checkpoint', help='Checkpoint file of an optional second model', default=None)
     parser.add_argument('--dataset_path', help='Path to the dataset',
-                        default='/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation/')
+                        default='/raid/andreim/kitti/data_odometry_color/segmentation/')
     parser.add_argument('--split', help='Split of the dataset')
     parser.add_argument('--use-all-data', action='store_true', help='Whether to use all the data or just the split')
     parser.add_argument('--save-good-bad', action='store_true', help='Whether to save good and bad examples')
@@ -165,7 +169,10 @@ def main():
 
     for row in tqdm(split_data):
         row = row.strip()
-        image_file, angle = row.split(',')
+        if len(row.split(',')) == 3:
+            image_file, angle, _ = row.split(',')
+        else:
+            image_file, angle = row.split(',')
         angle = float(angle)
         limits = [-float('inf'), *LIMITS, float('inf')]
         limits_scenarios = [-float('inf'), *LIMITS_SCENARIOS, float('inf')]
@@ -181,6 +188,8 @@ def main():
         label_path = image_path_og.replace('images', f'self_supervised_labels_{horizon}')
         if not os.path.exists(gt_path):
             continue
+
+        img = cv2.imread(image_path_og)
 
         gt_label = cv2.imread(gt_path)
         gt_label_og = gt_label.copy()
@@ -215,14 +224,16 @@ def main():
         total_pixels += np.sum(gt_label_2d)
 
         if args.additional_config and args.additional_checkpoint:
+            # for angle in range(-180, 180, 10000):
+            ann_info['curvature'] = angle
             additional_model_result = inference_segmentor_custom(additional_model, image_path_og, ann_info)
             additional_model_res = additional_model_result[0].copy()
             additional_model_res = np.repeat(additional_model_res[:, :, np.newaxis], repeats=3, axis=2).astype(np.uint8)
             additional_model_res_og = additional_model_res.copy()
             additional_model_res[:, :, 0] = 0
-            additional_model_res[:, :, 1] = 0
+            additional_model_res[:, :, 2] = 0
 
-            additional_model_res_2d = additional_model_res[:, :, 2]
+            additional_model_res_2d = additional_model_res[:, :, 1]
             additional_model_intersection = np.logical_and(gt_label_2d, additional_model_res_2d)
             additional_model_union = np.logical_or(gt_label_2d, additional_model_res_2d)
 
@@ -238,11 +249,9 @@ def main():
                 np.sum((gt_label_2d == additional_model_res_2d) * additional_model_mask)
             additional_model_total_pixels += np.sum(gt_label_2d)
 
-        img_og_cp_1 = cv2.imread(image_path_og)
-        img_og_cp_2 = cv2.imread(image_path_og)
+        img_og_cp_1 = img.copy()
+        img_og_cp_2 = img.copy()
 
-        alpha = 1.
-        beta = 1 - alpha
         # img_og[np.logical_or(gt_label_og, res_og) != 0] //= 3
         img_og_cp_1[res_og != 0] //= 2
         img_og_cp_2[ss_label_og != 0] //= 2
@@ -257,6 +266,19 @@ def main():
         # cv2.imwrite(f'demo/synasc/{split}_demo_res.png', res * 255)
         # cv2.imwrite(f'demo/synasc/{split}_demo_rgb_label.png', img_label)
         # cv2.imwrite(f'demo/synasc/{split}_demo_rgb_res.png', img_res)
+
+        if args.additional_config and args.additional_checkpoint:
+            img_cp = img.copy()
+            img_cp[np.logical_or(additional_model_res[:, :, 1], res[:, :, 2]) != 0] //= 3
+            additional_img_res = cv2.addWeighted(additional_model_res * 255, alpha, img_cp, 1, 0.5)
+            # cv2.imshow(f'frame_{angle}', additional_img_res)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+            additional_img_res = cv2.addWeighted(res * 255, alpha, additional_img_res, 1, 0.5)
+            if additional_model_iou > iou + 0.2:
+                cv2.imshow('improvement', additional_img_res)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
 
         if save_good_bad:
             if np.abs(angle) > 60 and iou > 0.55:

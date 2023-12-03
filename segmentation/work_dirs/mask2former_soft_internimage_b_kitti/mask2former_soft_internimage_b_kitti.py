@@ -148,7 +148,7 @@ model = dict(
         stride=(341, 341)),
     init_cfg=None)
 dataset_type = 'UPBDataset'
-data_root = '/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation'
+data_root = '/raid/andreim/kitti/data_odometry_color/segmentation'
 img_norm_cfg = dict(
     mean=[89.497, 93.675, 92.645], std=[76.422, 78.611, 80.487], to_rgb=True)
 crop_size = (200, 664)
@@ -199,7 +199,7 @@ data = dict(
     train=dict(
         type='UPBDataset',
         data_root=
-        '/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation',
+        '/raid/andreim/kitti/data_odometry_color/segmentation',
         img_dir='images',
         ann_dir='self_supervised_labels_30',
         split='splits/val_30.txt',
@@ -229,10 +229,10 @@ data = dict(
     val=dict(
         type='UPBDataset',
         data_root=
-        '/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation',
+        '/raid/andreim/kitti/data_odometry_color/segmentation',
         img_dir='images',
         ann_dir=
-        '/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation_gt/self_supervised_labels_30',
+        '/raid/andreim/kitti/data_odometry_color/segmentation_gt/self_supervised_labels_30',
         split='splits/test_30.txt',
         pipeline=[
             dict(type='LoadImageFromFile'),
@@ -255,10 +255,10 @@ data = dict(
     test=dict(
         type='UPBDataset',
         data_root=
-        '/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation',
+        '/raid/andreim/kitti/data_odometry_color/segmentation',
         img_dir='images',
         ann_dir=
-        '/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation_gt/self_supervised_labels_30',
+        '/raid/andreim/kitti/data_odometry_color/segmentation_gt/self_supervised_labels_30',
         split='splits/test_30.txt',
         pipeline=[
             dict(type='LoadImageFromFile'),

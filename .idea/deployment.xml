@@ -3,6 +3,13 @@
   <component name="PublishConfigData" autoUpload="Always" serverName="amihalea@localhost:7000 password" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
+      <paths name="aimas@localhost:7000 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="amihalea@localhost:7000 password">
         <serverdata>
           <mappings>
@@ -10,31 +17,17 @@
           </mappings>
         </serverdata>
       </paths>
-      <paths name="amihalea@localhost:7000 password (2)">
+      <paths name="nemodrive@localhost:6000 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/amihalea/workspace/InternImage" local="$PROJECT_DIR$" />
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="nemodrive@localhost:6000 password (3)">
+      <paths name="nemodrive@localhost:6000 password (2)">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/nemodrive/workspace/andreim/InternImage" local="$PROJECT_DIR$" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="nemodrive@localhost:6000 password (4)">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/home/nemodrive/workspace/andreim/InternImage" local="$PROJECT_DIR$" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="nemodrive@localhost:6000 password (5)">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/home/nemodrive/workspace/andreim/InternImage" local="$PROJECT_DIR$" />
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

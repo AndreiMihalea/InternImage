@@ -15,7 +15,7 @@ import torch
 def main():
     parser = ArgumentParser()
     parser.add_argument('--dataset_path', help='Path to the dataset',
-                        default='/mnt/datadisk/andreim/kitti/data_odometry_color/segmentation/')
+                        default='/raid/andreim/kitti/data_odometry_color/segmentation/')
     parser.add_argument('--split', help='Split of the dataset')
     parser.add_argument('--horizon', type=int, help='Length of the prediction horizon')
     parser.add_argument('--curvature_min', type=float, default=18, help='Minimum value of curvature to display')
