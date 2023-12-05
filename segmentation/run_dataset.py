@@ -107,6 +107,9 @@ def main():
                 if not os.path.exists(save_path):
                     os.makedirs(save_path)
 
+    if not os.path.exists('improvement'):
+        os.makedirs('improvement')
+
     # build the model from a config file and a checkpoint file
 
     model = init_segmentor(args.config, checkpoint=None, device=args.device)
@@ -164,8 +167,7 @@ def main():
 
         additional_model_total_matching_pixels  = 0
         additional_model_total_pixels  = 0
-
-    for row in tqdm(split_data[40:]):
+    for row in tqdm(split_data):
         row = row.strip()
         if len(row.split(',')) == 3:
             image_file, angle, _ = row.split(',')
@@ -245,11 +247,12 @@ def main():
             colored_res = colorize_mask(res, (0, 0, 255))
             colored_res_blue = colorize_mask(res, (255, 255, 102))
             colored_additional_res = colorize_mask(additional_model_res, (0, 0, 255))
-            colored_additional_res_orange = colorize_mask(additional_model_res, (153, 0, 76))
+            colored_additional_res_orange = colorize_mask(additional_model_res, (193, 0, 56))
             colored_gt = colorize_mask(gt_label, (0, 255, 0))
             mixed_gt_res = cv2.addWeighted(colored_gt, 1, colored_res, 1, 0.)
             mixed_gt_additional_res = cv2.addWeighted(colored_gt, 1, colored_additional_res, 1, 0.)
             mixed_res_additional_res = cv2.addWeighted(colored_res_blue, 1, colored_additional_res_orange, 1, 0.)
+            mixed_res_additional_res[np.logical_and(additional_model_res, res) != 0] = (0, 255, 255)
             img_cp_1 = img.copy()
             img_cp_2 = img.copy()
             img_cp_3 = img.copy()
@@ -264,13 +267,16 @@ def main():
             # cv2.destroyAllWindows()
             # additional_img_res = cv2.addWeighted(res * 255, alpha, additional_img_res, 1, 0.5)
             if additional_model_iou > iou + 0.2:
-                cv2.imshow('gt_res', final_img_gt_res)
-                cv2.waitKey(0)
-                cv2.imshow('gt_additional_res', final_img_gt_additional_res)
-                cv2.waitKey(0)
-                cv2.imshow('res_additional_res', final_img_res_additional_res)
-                cv2.waitKey(0)
-                cv2.destroyAllWindows()
+                # cv2.imshow('gt_res', final_img_gt_res)
+                # cv2.waitKey(0)
+                # cv2.imshow('gt_additional_res', final_img_gt_additional_res)
+                # cv2.waitKey(0)
+                # cv2.imshow('res_additional_res', final_img_res_additional_res)
+                # cv2.waitKey(0)
+                # cv2.destroyAllWindows()
+                cv2.imwrite(f'improvement/gt_res_{image_file}.png', final_img_gt_res)
+                cv2.imwrite(f'improvement/gt_additional_res_{image_file}.png', final_img_gt_additional_res)
+                cv2.imwrite(f'improvement/res_additional_res_{image_file}.png', final_img_res_additional_res)
 
         if save_good_bad:
             if np.abs(angle) > 60 and iou > 0.55:
