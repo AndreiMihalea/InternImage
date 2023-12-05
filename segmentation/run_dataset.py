@@ -3,24 +3,22 @@ import bisect
 import os
 from argparse import ArgumentParser
 
-import mmcv
 import numpy as np
 from tqdm import tqdm
 
 import mmcv_custom  # noqa: F401,F403
 import mmseg_custom  # noqa: F401,F403
-from mmseg.apis import inference_segmentor, init_segmentor, show_result_pyplot
+from mmseg.apis import init_segmentor
 from mmseg.apis.inference import LoadImage
-from mmseg.core.evaluation import get_palette
 from mmcv.runner import load_checkpoint
 from mmcv.parallel import collate, scatter
 from mmseg.core import get_classes
 from mmseg.datasets.pipelines import Compose
 import cv2
-import os.path as osp
 
 import torch
 
+from segmentation.utils import colorize_mask
 
 LIMITS = [-80, -40, 0, 40, 80]
 LIMITS_SCENARIOS = [-60, -18, 18, 60]
@@ -63,7 +61,7 @@ def inference_segmentor_custom(model, imgs, ann_info):
     return result
 
 
-alpha = 1.
+alpha = 0.5
 beta = 1 - alpha
 
 
@@ -167,7 +165,7 @@ def main():
         additional_model_total_matching_pixels  = 0
         additional_model_total_pixels  = 0
 
-    for row in tqdm(split_data):
+    for row in tqdm(split_data[40:]):
         row = row.strip()
         if len(row.split(',')) == 3:
             image_file, angle, _ = row.split(',')
@@ -191,72 +189,48 @@ def main():
 
         img = cv2.imread(image_path_og)
 
-        gt_label = cv2.imread(gt_path)
-        gt_label_og = gt_label.copy()
-        gt_label[:, :, 1] = 0
-        gt_label[:, :, 2] = 0
-
-        ss_label = cv2.imread(label_path)
-        ss_label_og = ss_label.copy()
-        ss_label[:, :, 0] = 0
-        ss_label[:, :, 2] = 0
+        gt_label = cv2.imread(gt_path)[:, :, 0]
+        ss_label = cv2.imread(label_path)[:, :, 0]
 
         result = inference_segmentor_custom(model, image_path_og, ann_info)
         res = result[0].copy()
-        res = np.repeat(res[:, :, np.newaxis], repeats=3, axis=2).astype(np.uint8)
-        res_og = res.copy()
-        res[:, :, 0] = 0
-        res[:, :, 1] = 0
 
-        gt_label_2d = gt_label[:, :, 0]
-        res_2d = res[:, :, 2]
-        intersection = np.logical_and(gt_label_2d, res_2d)
-        union = np.logical_or(gt_label_2d, res_2d)
+        intersection = np.logical_and(gt_label, res)
+        union = np.logical_or(gt_label, res)
 
         iou = np.sum(intersection) / np.sum(union) if np.sum(union) > 0 else 0
-        acc = np.sum(gt_label_2d == res_2d) / (gt_label_2d.size)
+        acc = np.sum(gt_label == res) / (gt_label.size)
 
         total_intersection += np.sum(intersection)
         total_union += np.sum(union)
 
-        mask = np.logical_and(gt_label_2d, res_2d)
-        total_matching_pixels += np.sum((gt_label_2d == res_2d) * mask)
-        total_pixels += np.sum(gt_label_2d)
+        mask = np.logical_and(gt_label, res)
+        total_matching_pixels += np.sum((gt_label == res) * mask)
+        total_pixels += np.sum(gt_label)
 
         if args.additional_config and args.additional_checkpoint:
             # for angle in range(-180, 180, 10000):
             ann_info['curvature'] = angle
             additional_model_result = inference_segmentor_custom(additional_model, image_path_og, ann_info)
             additional_model_res = additional_model_result[0].copy()
-            additional_model_res = np.repeat(additional_model_res[:, :, np.newaxis], repeats=3, axis=2).astype(np.uint8)
-            additional_model_res_og = additional_model_res.copy()
-            additional_model_res[:, :, 0] = 0
-            additional_model_res[:, :, 2] = 0
 
-            additional_model_res_2d = additional_model_res[:, :, 1]
-            additional_model_intersection = np.logical_and(gt_label_2d, additional_model_res_2d)
-            additional_model_union = np.logical_or(gt_label_2d, additional_model_res_2d)
+            additional_model_intersection = np.logical_and(gt_label, additional_model_res)
+            additional_model_union = np.logical_or(gt_label, additional_model_res)
 
             additional_model_iou = np.sum(additional_model_intersection) / np.sum(additional_model_union) if \
                 np.sum(additional_model_union) > 0 else 0
-            additional_model_acc = np.sum(gt_label_2d == additional_model_res_2d) / (gt_label_2d.size)
+            additional_model_acc = np.sum(gt_label == additional_model_res) / (gt_label.size)
 
             additional_model_total_intersection += np.sum(additional_model_intersection)
             additional_model_total_union += np.sum(additional_model_union)
 
-            additional_model_mask = np.logical_and(gt_label_2d, additional_model_res_2d)
+            additional_model_mask = np.logical_and(gt_label, additional_model_res)
             additional_model_total_matching_pixels += \
-                np.sum((gt_label_2d == additional_model_res_2d) * additional_model_mask)
-            additional_model_total_pixels += np.sum(gt_label_2d)
+                np.sum((gt_label == additional_model_res) * additional_model_mask)
+            additional_model_total_pixels += np.sum(gt_label)
 
         img_og_cp_1 = img.copy()
         img_og_cp_2 = img.copy()
-
-        # img_og[np.logical_or(gt_label_og, res_og) != 0] //= 3
-        img_og_cp_1[res_og != 0] //= 2
-        img_og_cp_2[ss_label_og != 0] //= 2
-        img_res = cv2.addWeighted(res * 255, alpha, img_og_cp_1, 1, 0.5)
-        img_label = cv2.addWeighted(ss_label * 255, alpha, img_og_cp_2, 1, 0.5)
 
         # cv2.imshow('res', img_res)
         # cv2.waitKey(0)
@@ -268,15 +242,33 @@ def main():
         # cv2.imwrite(f'demo/synasc/{split}_demo_rgb_res.png', img_res)
 
         if args.additional_config and args.additional_checkpoint:
-            img_cp = img.copy()
-            img_cp[np.logical_or(additional_model_res[:, :, 1], res[:, :, 2]) != 0] //= 3
-            additional_img_res = cv2.addWeighted(additional_model_res * 255, alpha, img_cp, 1, 0.5)
+            colored_res = colorize_mask(res, (0, 0, 255))
+            colored_res_blue = colorize_mask(res, (255, 255, 102))
+            colored_additional_res = colorize_mask(additional_model_res, (0, 0, 255))
+            colored_additional_res_orange = colorize_mask(additional_model_res, (153, 0, 76))
+            colored_gt = colorize_mask(gt_label, (0, 255, 0))
+            mixed_gt_res = cv2.addWeighted(colored_gt, 1, colored_res, 1, 0.)
+            mixed_gt_additional_res = cv2.addWeighted(colored_gt, 1, colored_additional_res, 1, 0.)
+            mixed_res_additional_res = cv2.addWeighted(colored_res_blue, 1, colored_additional_res_orange, 1, 0.)
+            img_cp_1 = img.copy()
+            img_cp_2 = img.copy()
+            img_cp_3 = img.copy()
+            img_cp_1[np.logical_or(res, gt_label) != 0] //= 3
+            img_cp_2[np.logical_or(additional_model_res, gt_label) != 0] //= 3
+            img_cp_3[np.logical_or(additional_model_res, res) != 0] //= 3
+            final_img_gt_res = cv2.addWeighted(img_cp_1, 1, mixed_gt_res, 1, 0.)
+            final_img_gt_additional_res = cv2.addWeighted(img_cp_2, 1, mixed_gt_additional_res, 1, 0.)
+            final_img_res_additional_res = cv2.addWeighted(img_cp_3, 1, mixed_res_additional_res, 1, 0.)
             # cv2.imshow(f'frame_{angle}', additional_img_res)
             # cv2.waitKey(0)
             # cv2.destroyAllWindows()
-            additional_img_res = cv2.addWeighted(res * 255, alpha, additional_img_res, 1, 0.5)
+            # additional_img_res = cv2.addWeighted(res * 255, alpha, additional_img_res, 1, 0.5)
             if additional_model_iou > iou + 0.2:
-                cv2.imshow('improvement', additional_img_res)
+                cv2.imshow('gt_res', final_img_gt_res)
+                cv2.waitKey(0)
+                cv2.imshow('gt_additional_res', final_img_gt_additional_res)
+                cv2.waitKey(0)
+                cv2.imshow('res_additional_res', final_img_res_additional_res)
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
 
