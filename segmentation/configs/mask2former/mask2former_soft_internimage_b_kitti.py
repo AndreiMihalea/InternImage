@@ -29,8 +29,8 @@ model = dict(
         with_cp=False,
         out_indices=(0, 1, 2, 3),
         init_cfg=dict(type='Pretrained', checkpoint=pretrained)),
-    additional_input='scenario_text',
-    additional_input_merging='cross_attention',
+    additional_input=None,
+    additional_input_merging=None,
     decode_head=dict(
         type='Mask2FormerSoftHead',
         num_things_classes=num_things_classes,

@@ -40,6 +40,7 @@ def inference_segmentor_custom(model, imgs, ann_info):
     device = next(model.parameters()).device  # model device
     # build the data pipeline
     test_pipeline = [LoadImage()] + cfg.data.test.pipeline[1:]
+    print(test_pipeline)
     test_pipeline = Compose(test_pipeline)
     # prepare data
     data = []
@@ -124,10 +125,11 @@ def main():
     else:
         model.CLASSES = get_classes(args.palette)
 
-    if 'CLASSES' in additional_checkpoint.get('meta', {}):
-        additional_model.CLASSES = additional_checkpoint['meta']['CLASSES']
-    else:
-        additional_model.CLASSES = get_classes(args.palette)
+    if args.additional_config and args.additional_checkpoint:
+        if 'CLASSES' in additional_checkpoint.get('meta', {}):
+            additional_model.CLASSES = additional_checkpoint['meta']['CLASSES']
+        else:
+            additional_model.CLASSES = get_classes(args.palette)
 
     if args.soft_output:
         model.output_soft_head = True
