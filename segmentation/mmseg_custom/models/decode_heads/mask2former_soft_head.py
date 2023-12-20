@@ -12,6 +12,7 @@ from mmcv.runner import ModuleList, force_fp32
 from mmseg.models.builder import HEADS, build_loss
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
 
+from mmseg_custom.models.backbones.intern_image import CrossAttention
 from ...core import build_sampler, multi_apply, reduce_mean
 from ..builder import build_assigner
 from ..utils import get_uncertain_point_coords_with_randomness
@@ -74,6 +75,8 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                  test_cfg=None,
                  init_cfg=None,
                  output_soft_head=False,
+                 additional_input=None,
+                 additional_input_merging=None,
                  **kwargs):
         super(Mask2FormerSoftHead, self).__init__(
             in_channels=in_channels,
@@ -148,6 +151,12 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         self.loss_soft = build_loss(loss_soft)
 
         self.output_soft_head = output_soft_head
+        self.additional_input = additional_input
+        self.additional_input_merging = additional_input_merging
+
+        if self.additional_input_merging == 'cross_attention':
+            self.text_embedding = nn.Embedding(5, 256)
+            self.cross_attention = CrossAttention(256)
 
     def init_weights(self):
         for m in self.decoder_input_projs:
@@ -488,7 +497,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
             num_dec_layer += 1
         return loss_dict
 
-    def forward_head(self, decoder_out, mask_feature, attn_mask_target_size):
+    def forward_head(self, decoder_out, mask_feature, attn_mask_target_size, **kwargs):
         """Forward for head part which is called after every decoder layer.
 
         Args:
@@ -536,7 +545,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
 
         return cls_pred, mask_pred, soft_mask_pred, attn_mask
 
-    def forward(self, feats, img_metas):
+    def forward(self, feats, img_metas, **kwargs):
         """Forward function.
 
         Args:
@@ -565,8 +574,18 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         decoder_positional_encodings = []
         for i in range(self.num_transformer_feat_level):
             decoder_input = self.decoder_input_projs[i](multi_scale_memorys[i])
-            # shape (batch_size, c, h, w) -> (h*w, batch_size, c)
-            decoder_input = decoder_input.flatten(2).permute(2, 0, 1)
+            # apply cross attention
+            if self.additional_input_merging == 'cross_attention':
+                # shape (batch_size, c, h, w) -> (batch_size, h*w, c)
+                decoder_input = decoder_input.flatten(2).permute(0, 2, 1)
+                text_embedding = self.text_embedding(kwargs[self.additional_input])
+                text_embedding = text_embedding.unsqueeze(1).repeat(1, 5, 1)
+                decoder_input = self.cross_attention(decoder_input, text_embedding, text_embedding)
+                # shape (batch_size, h*w, c) -> (h*w, batch_size, c)
+                decoder_input = decoder_input.permute(1, 0, 2)
+            else:
+                # shape (batch_size, c, h, w) -> (h*w, batch_size, c)
+                decoder_input = decoder_input.flatten(2).permute(2, 0, 1)
             level_embed = self.level_embed.weight[i].view(1, 1, -1)
             decoder_input = decoder_input + level_embed
             # shape (batch_size, c, h, w) -> (h*w, batch_size, c)
@@ -647,7 +666,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         """
 
         # forward
-        all_cls_scores, all_mask_preds, all_soft_mask_preds = self(x, img_metas)
+        all_cls_scores, all_mask_preds, all_soft_mask_preds = self(x, img_metas, **kwargs)
 
         # loss
         losses = self.loss(all_cls_scores, all_mask_preds, all_soft_mask_preds, gt_labels, gt_masks, gt_soft_masks,

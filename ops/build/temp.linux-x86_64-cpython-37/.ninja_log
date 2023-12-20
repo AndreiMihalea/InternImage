@@ -1,0 +1,4 @@
+# ninja log v5
+0	6577	1678553730936608581	/home/aimas/workspace/andreim/InternImage/segmentation/ops/build/temp.linux-x86_64-cpython-37/home/aimas/workspace/andreim/InternImage/segmentation/ops/src/cpu/ms_deform_attn_cpu.o	5988d04bf552cc51
+0	19879	1678553744244404270	/home/aimas/workspace/andreim/InternImage/segmentation/ops/build/temp.linux-x86_64-cpython-37/home/aimas/workspace/andreim/InternImage/segmentation/ops/src/cuda/ms_deform_attn_cuda.o	fc437a2b425df4d3
+1	22219	1678553746568368572	/home/aimas/workspace/andreim/InternImage/segmentation/ops/build/temp.linux-x86_64-cpython-37/home/aimas/workspace/andreim/InternImage/segmentation/ops/src/vision.o	888f0172815ce6c2

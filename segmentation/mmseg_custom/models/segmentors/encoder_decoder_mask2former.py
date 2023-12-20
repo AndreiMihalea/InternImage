@@ -25,6 +25,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
     def __init__(self,
                  backbone,
                  additional_input,
+                 additional_input_merging,
                  decode_head,
                  neck=None,
                  auxiliary_head=None,
@@ -41,14 +42,26 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         self.backbone = builder.build_backbone(backbone)
         if neck is not None:
             self.neck = builder.build_neck(neck)
+
+        self.output_soft_head = output_soft_head
         self.additional_input = additional_input
+        self.additional_input_merging = additional_input_merging
+
         decode_head.update(train_cfg=train_cfg)
         decode_head.update(test_cfg=test_cfg)
-        self.output_soft_head = output_soft_head
+        decode_head.update(output_soft_head=self.output_soft_head)
+        decode_head.update(additional_input=self.additional_input)
+        decode_head.update(additional_input_merging=self.additional_input_merging)
+
+        if self.additional_input_merging == 'input_concat':
+            if self.additional_input == 'category' or self.additional_input == 'curvature':
+                decode_head['in_channels'] = [chan_size + 1 for chan_size in decode_head['in_channels']]
+            elif self.additional_input == 'scenario_text':
+                self.text_embedding = nn.Embedding(5, 10)
+                decode_head['in_channels'] = [chan_size + 10 for chan_size in decode_head['in_channels']]
+
         self._init_decode_head(decode_head)
         self._init_auxiliary_head(auxiliary_head)
-
-        self.text_embedding = nn.Embedding(5, 10)
 
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
@@ -60,7 +73,6 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         self.decode_head = builder.build_head(decode_head)
         self.align_corners = self.decode_head.align_corners
         self.num_classes = self.decode_head.num_classes
-        self.decode_head.output_soft_head = self.output_soft_head
 
     def _init_auxiliary_head(self, auxiliary_head):
         """Initialize ``auxiliary_head``"""
@@ -123,6 +135,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         """Run forward function and calculate loss for decode head in
         training."""
         losses = dict()
+
         loss_decode = self.decode_head.forward_train(x, img_metas,
                                                      gt_semantic_seg, **kwargs)
 
@@ -185,7 +198,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
 
         x = self.extract_feat(img)
 
-        if self.additional_input:
+        if self.additional_input_merging == 'input_concat' and self.additional_input:
             x = self.merge_additional_input(x, **kwargs)
 
         losses = dict()
@@ -350,7 +363,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
             seg_pred = seg_pred.unsqueeze(0)
             return seg_pred
         seg_pred = seg_pred.cpu().numpy()
-        soft_seg_logit = soft_seg_logit.cpu().numpy()
+        soft_seg_logit = soft_seg_logit.sigmoid().cpu().numpy()
         # unravel batch dim
         seg_pred = list(seg_pred)
         soft_seg_logit = list(soft_seg_logit)

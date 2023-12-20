@@ -1,11 +1,18 @@
 import bisect
 import os
+from collections import OrderedDict
+from copy import deepcopy
+
 import mmcv
 import numpy as np
 from PIL import Image, ImageFile
+from mmseg.core import intersect_and_union
+from prettytable import PrettyTable
 from tqdm import tqdm
 
+from mmseg_custom.datasets.pipelines.formatting import ToSoft, ToMask
 from segmentation.dist_utils import build_dataloader
+from ..core.evaluation.metrics import pre_eval_to_metrics, eval_metrics, jaccard_metric
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 from mmcv import print_log
@@ -30,6 +37,22 @@ class UPBDataset(CustomDataset):
             split=split,
             reduce_zero_label=False,
             **kwargs)
+
+        self.to_mask = None
+        self.to_soft = None
+
+        if self.test_mode:
+            for step in kwargs['pipeline']:
+                if 'transforms' in step:
+                    for transform in step['transforms']:
+                        if transform['type'] == 'ToMask':
+                            mask_transform = deepcopy(transform)
+                            del mask_transform['type']
+                            self.to_mask = ToMask(**mask_transform)
+                        elif transform['type'] == 'ToSoft':
+                            soft_transform = deepcopy(transform)
+                            del soft_transform['type']
+                            self.to_soft = ToSoft(**soft_transform)
 
     def load_annotations(self, img_dir, img_suffix, ann_dir, seg_map_suffix,
                          split):
@@ -93,6 +116,14 @@ class UPBDataset(CustomDataset):
         if self.custom_classes:
             results['label_map'] = self.label_map
 
+    def get_gt_soft_seg_map_by_idx(self, index):
+        """Get one ground truth segmentation map for evaluation."""
+        ann_info = self.get_ann_info(index)
+        results = dict(ann_info=ann_info)
+        self.pre_pipeline(results)
+        self.gt_seg_map_loader(results)
+        return self.to_soft(self.to_mask(results))['gt_soft_masks']
+
     def __getitem__(self, idx):
         """Get training/test data after pipeline.
 
@@ -108,6 +139,163 @@ class UPBDataset(CustomDataset):
             return self.prepare_train_img(idx)
         else:
             return self.prepare_train_img(idx)
+
+    def pre_eval(self, preds, indices):
+        """Collect eval result from each iteration.
+
+        Args:
+            preds (list[torch.Tensor] | torch.Tensor): the segmentation logit
+                after argmax, shape (N, H, W).
+            indices (list[int] | int): the prediction related ground truth
+                indices.
+
+        Returns:
+            list[torch.Tensor]: (area_intersect, area_union, area_prediction,
+                area_ground_truth).
+        """
+
+        hard_preds = None
+        soft_preds = None
+
+        # If preds is a tuple, it means there are both hard and soft predictions
+        if isinstance(preds, tuple):
+            hard_preds = preds[0]
+            soft_preds = preds[1]
+        else:
+            hard_preds = preds
+
+        # In order to compat with batch inference
+        if not isinstance(indices, list):
+            indices = [indices]
+        if not isinstance(hard_preds, list):
+            hard_preds = [hard_preds]
+
+        pre_eval_results = []
+
+        for it, (hard_pred, index) in enumerate(zip(hard_preds, indices)):
+            seg_map = self.get_gt_seg_map_by_idx(index)
+            soft_seg_map = self.get_gt_soft_seg_map_by_idx(index)
+            i_and_u = intersect_and_union(
+                    hard_pred,
+                    seg_map,
+                    len(self.CLASSES),
+                    self.ignore_index,
+                    # as the labels has been converted when dataset initialized
+                    # in `get_palette_for_custom_classes ` this `label_map`
+                    # should be `dict()`, see
+                    # https://github.com/open-mmlab/mmsegmentation/issues/1415
+                    # for more ditails
+                    label_map=dict(),
+                    reduce_zero_label=self.reduce_zero_label)
+            if soft_preds:
+                soft_pred = soft_preds[it]
+                jm = jaccard_metric(soft_pred, soft_seg_map)
+                pre_eval_results.append((*i_and_u, *jm))
+            else:
+                pre_eval_results.append(i_and_u)
+
+        return pre_eval_results
+
+    def evaluate(self,
+                 results,
+                 metric='mIoU',
+                 logger=None,
+                 gt_seg_maps=None,
+                 **kwargs):
+        """Evaluate the dataset.
+
+        Args:
+            results (list[tuple[torch.Tensor]] | list[str]): per image pre_eval
+                 results or predict segmentation map for computing evaluation
+                 metric.
+            metric (str | list[str]): Metrics to be evaluated. 'mIoU',
+                'mDice' and 'mFscore' are supported.
+            logger (logging.Logger | None | str): Logger used for printing
+                related information during evaluation. Default: None.
+            gt_seg_maps (generator[ndarray]): Custom gt seg maps as input,
+                used in ConcatDataset
+
+        Returns:
+            dict[str, float]: Default metrics.
+        """
+        if isinstance(metric, str):
+            metric = [metric]
+        allowed_metrics = ['mIoU', 'mDice', 'mFscore', 'mIoU_soft']
+        if not set(metric).issubset(set(allowed_metrics)):
+            raise KeyError('metric {} is not supported'.format(metric))
+
+        eval_results = {}
+        # test a list of files
+        if mmcv.is_list_of(results, np.ndarray) or mmcv.is_list_of(
+                results, str):
+            if gt_seg_maps is None:
+                gt_seg_maps = self.get_gt_seg_maps()
+            num_classes = len(self.CLASSES)
+            ret_metrics = eval_metrics(
+                results,
+                gt_seg_maps,
+                num_classes,
+                self.ignore_index,
+                metric,
+                label_map=dict(),
+                reduce_zero_label=self.reduce_zero_label)
+        # test a list of pre_eval_results
+        else:
+            ret_metrics = pre_eval_to_metrics(results, metric)
+
+        # Because dataset.CLASSES is required for per-eval.
+        if self.CLASSES is None:
+            class_names = tuple(range(num_classes))
+        else:
+            class_names = self.CLASSES
+
+        # summary table
+        ret_metrics_summary = OrderedDict({
+            ret_metric: np.round(np.nanmean(ret_metric_value) * 100, 2)
+            for ret_metric, ret_metric_value in ret_metrics.items()
+        })
+
+        # each class table
+        ret_metrics.pop('aAcc', None)
+        ret_metrics_class = OrderedDict({
+            ret_metric: np.round(ret_metric_value * 100, 2)
+            for ret_metric, ret_metric_value in ret_metrics.items()
+        })
+        ret_metrics_class.update({'Class': class_names})
+        ret_metrics_class.move_to_end('Class', last=False)
+
+        # for logger
+        class_table_data = PrettyTable()
+        for key, val in ret_metrics_class.items():
+            class_table_data.add_column(key, val)
+
+        summary_table_data = PrettyTable()
+        for key, val in ret_metrics_summary.items():
+            if key == 'aAcc':
+                summary_table_data.add_column(key, [val])
+            else:
+                summary_table_data.add_column('m' + key, [val])
+
+        print_log('per class results:', logger)
+        print_log('\n' + class_table_data.get_string(), logger=logger)
+        print_log('Summary:', logger)
+        print_log('\n' + summary_table_data.get_string(), logger=logger)
+
+        # each metric dict
+        for key, value in ret_metrics_summary.items():
+            if key == 'aAcc':
+                eval_results[key] = value / 100.0
+            else:
+                eval_results['m' + key] = value / 100.0
+
+        ret_metrics_class.pop('Class', None)
+        for key, value in ret_metrics_class.items():
+            eval_results.update({
+                key + '.' + str(name): value[idx] / 100.0
+                for idx, name in enumerate(class_names)
+            })
+
+        return eval_results
 
 
 def compute_mean_std(data_path):

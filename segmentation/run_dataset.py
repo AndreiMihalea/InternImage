@@ -167,7 +167,7 @@ def main():
 
         additional_model_total_matching_pixels  = 0
         additional_model_total_pixels  = 0
-    for row in tqdm(split_data):
+    for row in tqdm(split_data[40:]):
         row = row.strip()
         if len(row.split(',')) == 3:
             image_file, angle, _ = row.split(',')
@@ -194,8 +194,12 @@ def main():
         gt_label = cv2.imread(gt_path)[:, :, 0]
         ss_label = cv2.imread(label_path)[:, :, 0]
 
-        result = inference_segmentor_custom(model, image_path_og, ann_info)
+        result = inference_segmentor_custom(model, [image_path_og] * 5, ann_info)
+        print(len(result))
+        print(len(result[1]), len(result[0]), result[0].shape)
         res = result[0].copy()
+        cv2.imshow("soft", result[1][0][1] / result[1][0][1].max())
+        cv2.waitKey(0)
 
         intersection = np.logical_and(gt_label, res)
         union = np.logical_or(gt_label, res)
@@ -274,9 +278,9 @@ def main():
                 # cv2.imshow('res_additional_res', final_img_res_additional_res)
                 # cv2.waitKey(0)
                 # cv2.destroyAllWindows()
-                cv2.imwrite(f'improvement/gt_res_{image_file}.png', final_img_gt_res)
-                cv2.imwrite(f'improvement/gt_additional_res_{image_file}.png', final_img_gt_additional_res)
-                cv2.imwrite(f'improvement/res_additional_res_{image_file}.png', final_img_res_additional_res)
+                cv2.imwrite(f'improvement/{image_file}_gt_res.png', final_img_gt_res)
+                cv2.imwrite(f'improvement/{image_file}_gt_additional_res.png', final_img_gt_additional_res)
+                cv2.imwrite(f'improvement/{image_file}_res_additional_res.png', final_img_res_additional_res)
 
         if save_good_bad:
             if np.abs(angle) > 60 and iou > 0.55:
