@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 from mmcv.parallel import DataContainer as DC
 from mmseg.datasets.builder import PIPELINES
+from mmseg.datasets.pipelines import loading
 from mmseg.datasets.pipelines.formatting import to_tensor
 
 
@@ -150,3 +151,4 @@ class LoadCategory(object):
         results['curvature'] = results['ann_info']['curvature']
         return results
 
+    loading

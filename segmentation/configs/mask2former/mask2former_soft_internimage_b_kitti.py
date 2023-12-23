@@ -29,8 +29,8 @@ model = dict(
         with_cp=False,
         out_indices=(0, 1, 2, 3),
         init_cfg=dict(type='Pretrained', checkpoint=pretrained)),
-    additional_input=None,
-    additional_input_merging=None,
+    additional_input='curvature', # can be category, curvature or scenario_text
+    additional_input_merging='input_concat', # can be input_concat or cross_attention
     decode_head=dict(
         type='Mask2FormerSoftHead',
         num_things_classes=num_things_classes,
@@ -108,6 +108,24 @@ model = dict(
             loss_weight=0.0,
             reduction='mean',
             class_weight=[1.0] * num_classes + [0.1]),
+        loss_mask=dict(
+            type='CrossEntropyLoss',
+            use_sigmoid=True,
+            reduction='mean',
+            loss_weight=0.0),
+        loss_dice=dict(
+            type='DiceLoss',
+            use_sigmoid=True,
+            activate=True,
+            reduction='mean',
+            naive_dice=True,
+            eps=1.0,
+            loss_weight=0.0),
+        loss_soft=dict(
+            type='CrossEntropyLoss',
+            use_sigmoid=True,
+            reduction='mean',
+            loss_weight=5.0)
     ),
     test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341)),
     output_soft_head=True)

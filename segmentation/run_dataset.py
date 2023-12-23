@@ -39,8 +39,7 @@ def inference_segmentor_custom(model, imgs, ann_info):
     cfg = model.cfg
     device = next(model.parameters()).device  # model device
     # build the data pipeline
-    test_pipeline = [LoadImage()] + cfg.data.test.pipeline[1:]
-    print(test_pipeline)
+    test_pipeline = [LoadImage()] + cfg.data.inference.pipeline[1:]
     test_pipeline = Compose(test_pipeline)
     # prepare data
     data = []
@@ -196,11 +195,10 @@ def main():
         gt_label = cv2.imread(gt_path)[:, :, 0]
         ss_label = cv2.imread(label_path)[:, :, 0]
 
-        result = inference_segmentor_custom(model, [image_path_og] * 5, ann_info)
-        print(len(result))
-        print(len(result[1]), len(result[0]), result[0].shape)
+        result = inference_segmentor_custom(model, image_path_og, ann_info)
         res = result[0].copy()
-        cv2.imshow("soft", result[1][0][1] / result[1][0][1].max())
+        print(result[1][0][0].max(), result[1][0][0].min())
+        cv2.imshow("soft", result[1][0][0])
         cv2.waitKey(0)
 
         intersection = np.logical_and(gt_label, res)

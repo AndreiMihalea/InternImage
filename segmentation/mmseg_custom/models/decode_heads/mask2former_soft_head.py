@@ -699,7 +699,6 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         mask_pred = mask_pred.sigmoid()
         seg_mask = torch.einsum('bqc,bqhw->bchw', cls_score, mask_pred)
 
-        soft_mask_pred = soft_mask_pred.sigmoid()
         seg_soft_mask = torch.einsum('bqc,bqhw->bchw', cls_score, soft_mask_pred)
 
         return seg_mask, seg_soft_mask

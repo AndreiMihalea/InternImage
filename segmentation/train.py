@@ -58,7 +58,7 @@ def train_segmentor_custom(model,
     loader_cfg.update({
         k: v
         for k, v in cfg.data.items() if k not in [
-            'train', 'val', 'test', 'train_dataloader', 'val_dataloader',
+            'train', 'val', 'test', 'inference', 'train_dataloader', 'val_dataloader',
             'test_dataloader'
         ]
     })
