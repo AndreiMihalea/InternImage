@@ -197,8 +197,8 @@ def main():
 
         result = inference_segmentor_custom(model, image_path_og, ann_info)
         res = result[0].copy()
-        print(result[1][0][1].max(), result[1][0][1].min())
-        cv2.imshow("soft", result[1][0][0])
+        print(result[1][0][0].max(), result[1][0][0].min())
+        cv2.imshow("soft", result[1][0][1])
         cv2.waitKey(0)
 
         intersection = np.logical_and(gt_label, res)
