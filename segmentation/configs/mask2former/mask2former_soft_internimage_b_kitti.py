@@ -29,8 +29,8 @@ model = dict(
         with_cp=False,
         out_indices=(0, 1, 2, 3),
         init_cfg=dict(type='Pretrained', checkpoint=pretrained)),
-    additional_input=None, # can be category, curvature or scenario_text
-    additional_input_merging=None, # can be input_concat or cross_attention
+    additional_input='curvature', # can be category, curvature or scenario_text
+    additional_input_merging='input_concat', # can be input_concat or cross_attention
     decode_head=dict(
         type='Mask2FormerSoftHead',
         num_things_classes=num_things_classes,
