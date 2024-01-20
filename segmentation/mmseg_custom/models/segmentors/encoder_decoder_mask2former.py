@@ -49,7 +49,8 @@ class EncoderDecoderMask2Former(BaseSegmentor):
 
         decode_head.update(train_cfg=train_cfg)
         decode_head.update(test_cfg=test_cfg)
-        decode_head.update(output_soft_head=self.output_soft_head)
+        if output_soft_head:
+            decode_head.update(output_soft_head=self.output_soft_head)
         decode_head.update(additional_input=self.additional_input)
         decode_head.update(additional_input_merging=self.additional_input_merging)
 
