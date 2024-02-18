@@ -1,15 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="amihalea@localhost:7000 password" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="amihalea@localhost:7000 password (3)" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
-      <paths name="aimas@localhost:7000 password">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
       <paths name="amihalea@localhost:7000 password">
         <serverdata>
           <mappings>
@@ -17,17 +10,10 @@
           </mappings>
         </serverdata>
       </paths>
-      <paths name="nemodrive@localhost:6000 password">
+      <paths name="amihalea@localhost:7000 password (3)">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="nemodrive@localhost:6000 password (2)">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/home/amihalea/workspace/InternImage" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

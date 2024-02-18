@@ -73,7 +73,7 @@ def train_segmentor_custom(model,
         if i % 100 == 0:
             print(i)
             print(categories)
-        for cat in el['category']:
+        for cat in el['category_for_balancing']:
             cat = cat.item()
             categories[cat] += 1
 

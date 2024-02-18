@@ -147,7 +147,10 @@ class Mask2FormerHead(BaseDecodeHead):
         self.additional_input_merging = additional_input_merging
 
         if self.additional_input_merging == 'cross_attention':
-            self.text_embedding = nn.Embedding(5, 256)
+            if self.additional_input in ['curvature', 'category']:
+                self.linear = nn.Linear(1, 256)
+            elif self.additional_input == 'scenario_text':
+                self.text_embedding = nn.Embedding(5, 256)
             self.cross_attention = CrossAttention(256)
 
     def init_weights(self):
@@ -483,9 +486,15 @@ class Mask2FormerHead(BaseDecodeHead):
             if self.additional_input_merging == 'cross_attention':
                 # shape (batch_size, c, h, w) -> (batch_size, h*w, c)
                 decoder_input = decoder_input.flatten(2).permute(0, 2, 1)
-                text_embedding = self.text_embedding(kwargs[self.additional_input])
-                text_embedding = text_embedding.unsqueeze(1).repeat(1, 5, 1)
-                decoder_input = self.cross_attention(decoder_input, text_embedding, text_embedding)
+                if isinstance(kwargs[self.additional_input], list):
+                    kwargs[self.additional_input] = torch.cat(kwargs[self.additional_input]).unsqueeze(1)
+                kwargs[self.additional_input] = kwargs[self.additional_input].float()
+                if self.additional_input in ['curvature', 'category']:
+                    guidance_features = self.linear(kwargs[self.additional_input])
+                elif self.additional_input == 'scenario_text':
+                    guidance_features = self.text_embedding(kwargs[self.additional_input])
+                guidance_features = guidance_features.unsqueeze(1).repeat(1, 5, 1)
+                decoder_input = self.cross_attention(decoder_input, guidance_features, guidance_features)
                 # shape (batch_size, h*w, c) -> (h*w, batch_size, c)
                 decoder_input = decoder_input.permute(1, 0, 2)
             else:
@@ -574,7 +583,7 @@ class Mask2FormerHead(BaseDecodeHead):
 
         return losses
 
-    def forward_test(self, inputs, img_metas, test_cfg):
+    def forward_test(self, inputs, img_metas, test_cfg, **kwargs):
         """Test segment without test-time aumengtation.
 
         Only the output of last decoder layers was used.
@@ -588,7 +597,7 @@ class Mask2FormerHead(BaseDecodeHead):
         Returns:
             seg_mask (Tensor): Predicted semantic segmentation logits.
         """
-        all_cls_scores, all_mask_preds = self(inputs, img_metas)
+        all_cls_scores, all_mask_preds = self(inputs, img_metas, **kwargs)
         cls_score, mask_pred = all_cls_scores[-1], all_mask_preds[-1]
         ori_h, ori_w, _ = img_metas[0]['ori_shape']
 

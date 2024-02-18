@@ -20,7 +20,7 @@ train_pipeline = [
     dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels', 'gt_soft_masks', 'category',
-                               'curvature', 'scenario_text'])
+                               'category_for_balancing', 'curvature', 'scenario_text'])
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -38,7 +38,8 @@ test_pipeline = [
             dict(type='ImageToTensor', keys=['img']),
             dict(type='ToMask'),
             dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
-            dict(type='Collect', keys=['img', 'gt_soft_masks', 'category', 'curvature', 'scenario_text']),
+            dict(type='Collect', keys=['img', 'gt_soft_masks', 'category', 'category_for_balancing', 'curvature',
+                                       'scenario_text']),
         ])
 ]
 inference_pipeline = [
@@ -57,7 +58,7 @@ inference_pipeline = [
             dict(type='ImageToTensor', keys=['img']),
             # dict(type='ToMask'),
             # dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
-            dict(type='Collect', keys=['img', 'category', 'curvature', 'scenario_text']),
+            dict(type='Collect', keys=['img', 'category', 'category_for_balancing', 'curvature', 'scenario_text']),
         ])
 ]
 data = dict(

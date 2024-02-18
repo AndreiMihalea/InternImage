@@ -29,8 +29,8 @@ model = dict(
         with_cp=False,
         out_indices=(0, 1, 2, 3),
         init_cfg=dict(type='Pretrained', checkpoint=pretrained)),
-    additional_input=None,  # can be category, curvature or scenario_text
-    additional_input_merging=None,  # can be input_concat or cross_attention
+    additional_input='scenario_text',  # can be category, curvature or scenario_text
+    additional_input_merging='input_concat',  # can be input_concat or cross_attention
     decode_head=dict(
         type='Mask2FormerHead',
         num_things_classes=num_things_classes,
@@ -125,7 +125,7 @@ lr_config = dict(_delete_=True, policy='poly',
                  warmup_ratio=1e-6,
                  power=1.0, min_lr=0.0, by_epoch=False)
 # By default, models are trained on 8 GPUs with 2 images per GPU
-data = dict(samples_per_gpu=2, workers_per_gpu=4)
+data = dict(samples_per_gpu=4, workers_per_gpu=4)
 runner = dict(type='IterBasedRunner')
 optimizer_config = dict(_delete_=True, grad_clip=dict(max_norm=0.1, norm_type=2))
 checkpoint_config = dict(by_epoch=False, interval=1000, max_keep_ckpts=1)

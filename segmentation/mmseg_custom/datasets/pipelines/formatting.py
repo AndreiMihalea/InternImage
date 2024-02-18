@@ -51,7 +51,12 @@ class DefaultFormatBundle(object):
             results['gt_labels'] = DC(to_tensor(results['gt_labels']))
         if 'gt_soft_masks' in results:
             results['gt_soft_masks'] = DC(to_tensor(results['gt_soft_masks']))
-
+        if 'curvature' in results:
+            results['curvature'] = DC(to_tensor(results['curvature']))
+        if 'category' in results:
+            results['category'] = DC(to_tensor(results['category']))
+        if 'scenario_text' in results:
+            results['scenario_text'] = DC(to_tensor(results['scenario_text']))
         return results
 
     def __repr__(self):
@@ -147,6 +152,7 @@ class LoadCategory(object):
         """
 
         results['category'] = results['ann_info']['category']
+        results['category_for_balancing'] = results['ann_info']['category_for_balancing']
         results['curvature'] = results['ann_info']['curvature']
         results['scenario_text'] = results['ann_info']['scenario_text']
         return results

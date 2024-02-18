@@ -91,8 +91,9 @@ class UPBDataset(CustomDataset):
                         categories[category] = 1
                     if ann_dir is not None:
                         seg_map = img_name
-                        img_info['ann'] = dict(seg_map=seg_map, euler_pose=euler_pose, category=category,
-                                               curvature=int(euler_pose), scenario_text=category_scenarios)
+                        img_info['ann'] = dict(seg_map=seg_map, euler_pose=euler_pose, category=float(category),
+                                               category_for_balancing=category,
+                                               curvature=float(euler_pose), scenario_text=category_scenarios)
                     img_infos.append(img_info)
                 img_infos = sorted(img_infos, key=lambda x: x['filename'])
             print(categories, sum(categories.values()), nr)

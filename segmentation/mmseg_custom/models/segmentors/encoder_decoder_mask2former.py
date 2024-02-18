@@ -115,10 +115,10 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         map of the same size as input."""
         x = self.extract_feat(img)
 
-        if self.additional_input:
+        if self.additional_input_merging == 'input_concat':
             x = self.merge_additional_input(x, **kwargs)
 
-        out, soft_out = self._decode_head_forward_test(x, img_metas)
+        out, soft_out = self._decode_head_forward_test(x, img_metas, **kwargs)
         out = resize(
             input=out,
             size=img.shape[2:],
@@ -143,10 +143,10 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         losses.update(add_prefix(loss_decode, 'decode'))
         return losses
 
-    def _decode_head_forward_test(self, x, img_metas):
+    def _decode_head_forward_test(self, x, img_metas, **kwargs):
         """Run forward function and calculate loss for decode head in
         inference."""
-        seg_logits = self.decode_head.forward_test(x, img_metas, self.test_cfg)
+        seg_logits = self.decode_head.forward_test(x, img_metas, self.test_cfg, **kwargs)
         return seg_logits
 
     def _auxiliary_head_forward_train(self, x, img_metas, gt_semantic_seg):

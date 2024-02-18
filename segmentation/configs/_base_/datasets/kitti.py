@@ -19,11 +19,12 @@ train_pipeline = [
     dict(type='ToMask'),
     dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels', 'category', 'curvature',
-                               'scenario_text'])
+    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels', 'category', 'category_for_balancing',
+                               'curvature', 'scenario_text'])
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
+    dict(type='LoadAnnotations', reduce_zero_label=False),
     dict(type='LoadCategory'),
     dict(
         type='MultiScaleFlipAug',
@@ -35,7 +36,28 @@ test_pipeline = [
             dict(type='RandomFlip'),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='ImageToTensor', keys=['img']),
-            dict(type='Collect', keys=['img', 'category', 'curvature', 'scenario_text']),
+            dict(type='ToMask'),
+            dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
+            dict(type='Collect', keys=['img', 'category', 'category_for_balancing', 'curvature', 'scenario_text']),
+        ])
+]
+inference_pipeline = [
+    dict(type='LoadImageFromFile'),
+    # dict(type='LoadAnnotations', reduce_zero_label=False),
+    dict(type='LoadCategory'),
+    dict(
+        type='MultiScaleFlipAug',
+        img_scale=crop_size,
+        # img_ratios=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
+        flip=False,
+        transforms=[
+            dict(type='Resize', keep_ratio=True),
+            dict(type='RandomFlip'),
+            dict(type='Normalize', **img_norm_cfg),
+            dict(type='ImageToTensor', keys=['img']),
+            # dict(type='ToMask'),
+            # dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
+            dict(type='Collect', keys=['img', 'category', 'category_for_balancing', 'curvature', 'scenario_text']),
         ])
 ]
 data = dict(
@@ -61,4 +83,11 @@ data = dict(
         img_dir='images',
         ann_dir='/raid/andreim/kitti/data_odometry_color/segmentation/self_supervised_labels_30',
         split='splits/test_30.txt',
-        pipeline=test_pipeline))
+        pipeline=test_pipeline),
+    inference=dict(
+        type=dataset_type,
+        data_root=data_root,
+        img_dir='images',
+        ann_dir='/raid/andreim/kitti/data_odometry_color/segmentation_gt/self_supervised_labels_30',
+        split='splits/test_30.txt',
+        pipeline=inference_pipeline))

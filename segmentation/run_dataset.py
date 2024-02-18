@@ -77,7 +77,7 @@ def main():
     parser.add_argument('--use-all-data', action='store_true', help='Whether to use all the data or just the split')
     parser.add_argument('--save-good-bad', action='store_true', help='Whether to save good and bad examples')
     parser.add_argument('--horizon', type=int, help='Length of the prediction horizon')
-    parser.add_argument('--out', type=str, default="demo", help='out dir')
+    parser.add_argument('--save-dir', type=str, help='Path to the directory where stuff is saved')
     parser.add_argument(
         '--device', default='cuda:0', help='Device used for inference')
     parser.add_argument(
@@ -96,6 +96,10 @@ def main():
     args = parser.parse_args()
 
     save_good_bad = args.save_good_bad
+    save_dir = args.save_dir
+
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
 
     if save_good_bad:
         out_dirs_lv0 = ['good', 'bad']
@@ -168,12 +172,15 @@ def main():
 
         additional_model_total_matching_pixels  = 0
         additional_model_total_pixels  = 0
-    for row in tqdm(split_data[40:]):
+    for row in tqdm(split_data[0:]):
         row = row.strip()
         if len(row.split(',')) == 3:
             image_file, angle, _ = row.split(',')
         else:
             image_file, angle = row.split(',')
+        filename = image_file.replace('.png', '')
+        # if filename != '08_frame001389':
+        #     continue
         angle = float(angle)
         limits = [-float('inf'), *LIMITS, float('inf')]
         limits_scenarios = [-float('inf'), *LIMITS_SCENARIOS, float('inf')]
@@ -197,9 +204,9 @@ def main():
 
         result = inference_segmentor_custom(model, image_path_og, ann_info)
         res = result[0].copy()
-        print(result[1][0][0].max(), result[1][0][0].min())
-        cv2.imshow("soft", result[1][0][1])
-        cv2.waitKey(0)
+        # print(result[1][0][0].max(), result[1][0][0].min())
+        # cv2.imshow("soft", result[1][0][1])
+        # cv2.waitKey(0)
 
         intersection = np.logical_and(gt_label, res)
         union = np.logical_or(gt_label, res)
@@ -214,27 +221,6 @@ def main():
         total_matching_pixels += np.sum((gt_label == res) * mask)
         total_pixels += np.sum(gt_label)
 
-        if args.additional_config and args.additional_checkpoint:
-            # for angle in range(-180, 180, 10000):
-            ann_info['curvature'] = angle
-            additional_model_result = inference_segmentor_custom(additional_model, image_path_og, ann_info)
-            additional_model_res = additional_model_result[0].copy()
-
-            additional_model_intersection = np.logical_and(gt_label, additional_model_res)
-            additional_model_union = np.logical_or(gt_label, additional_model_res)
-
-            additional_model_iou = np.sum(additional_model_intersection) / np.sum(additional_model_union) if \
-                np.sum(additional_model_union) > 0 else 0
-            additional_model_acc = np.sum(gt_label == additional_model_res) / (gt_label.size)
-
-            additional_model_total_intersection += np.sum(additional_model_intersection)
-            additional_model_total_union += np.sum(additional_model_union)
-
-            additional_model_mask = np.logical_and(gt_label, additional_model_res)
-            additional_model_total_matching_pixels += \
-                np.sum((gt_label == additional_model_res) * additional_model_mask)
-            additional_model_total_pixels += np.sum(gt_label)
-
         img_og_cp_1 = img.copy()
         img_og_cp_2 = img.copy()
 
@@ -248,39 +234,76 @@ def main():
         # cv2.imwrite(f'demo/synasc/{split}_demo_rgb_res.png', img_res)
 
         if args.additional_config and args.additional_checkpoint:
-            colored_res = colorize_mask(res, (0, 0, 255))
-            colored_res_blue = colorize_mask(res, (255, 255, 102))
-            colored_additional_res = colorize_mask(additional_model_res, (0, 0, 255))
-            colored_additional_res_orange = colorize_mask(additional_model_res, (193, 0, 56))
-            colored_gt = colorize_mask(gt_label, (0, 255, 0))
-            mixed_gt_res = cv2.addWeighted(colored_gt, 1, colored_res, 1, 0.)
-            mixed_gt_additional_res = cv2.addWeighted(colored_gt, 1, colored_additional_res, 1, 0.)
-            mixed_res_additional_res = cv2.addWeighted(colored_res_blue, 1, colored_additional_res_orange, 1, 0.)
-            mixed_res_additional_res[np.logical_and(additional_model_res, res) != 0] = (0, 255, 255)
-            img_cp_1 = img.copy()
-            img_cp_2 = img.copy()
-            img_cp_3 = img.copy()
-            img_cp_1[np.logical_or(res, gt_label) != 0] //= 3
-            img_cp_2[np.logical_or(additional_model_res, gt_label) != 0] //= 3
-            img_cp_3[np.logical_or(additional_model_res, res) != 0] //= 3
-            final_img_gt_res = cv2.addWeighted(img_cp_1, 1, mixed_gt_res, 1, 0.)
-            final_img_gt_additional_res = cv2.addWeighted(img_cp_2, 1, mixed_gt_additional_res, 1, 0.)
-            final_img_res_additional_res = cv2.addWeighted(img_cp_3, 1, mixed_res_additional_res, 1, 0.)
-            # cv2.imshow(f'frame_{angle}', additional_img_res)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
-            # additional_img_res = cv2.addWeighted(res * 255, alpha, additional_img_res, 1, 0.5)
-            if additional_model_iou > iou + 0.2:
-                # cv2.imshow('gt_res', final_img_gt_res)
-                # cv2.waitKey(0)
-                # cv2.imshow('gt_additional_res', final_img_gt_additional_res)
-                # cv2.waitKey(0)
-                # cv2.imshow('res_additional_res', final_img_res_additional_res)
-                # cv2.waitKey(0)
+            for angle in [0]:
+                # ann_info['scenario_text'] = angle
+                additional_model_result = inference_segmentor_custom(additional_model, image_path_og, ann_info)
+                try:
+                    additional_model_res = additional_model_result[1][0][1].copy()
+                    additional_model_res[additional_model_res > 0.3] = 1
+                    additional_model_res[additional_model_res != 1] = 0
+                except:
+                    additional_model_res = additional_model_result[0]
+
+                additional_model_intersection = np.logical_and(gt_label, additional_model_res)
+                additional_model_union = np.logical_or(gt_label, additional_model_res)
+
+                additional_model_iou = np.sum(additional_model_intersection) / np.sum(additional_model_union) if \
+                    np.sum(additional_model_union) > 0 else 0
+                additional_model_acc = np.sum(gt_label == additional_model_res) / (gt_label.size)
+
+                additional_model_total_intersection += np.sum(additional_model_intersection)
+                additional_model_total_union += np.sum(additional_model_union)
+
+                additional_model_mask = np.logical_and(gt_label, additional_model_res)
+                additional_model_total_matching_pixels += \
+                    np.sum((gt_label == additional_model_res) * additional_model_mask)
+                additional_model_total_pixels += np.sum(gt_label)
+
+                colored_res = colorize_mask(res, (0, 0, 255))
+                colored_res_blue = colorize_mask(res, (255, 255, 102))
+                colored_additional_res = colorize_mask(additional_model_res, (0, 0, 255))
+                colored_additional_res_orange = colorize_mask(additional_model_res, (193, 0, 56))
+                colored_gt = colorize_mask(gt_label, (0, 255, 0))
+                mixed_gt_res = cv2.addWeighted(colored_gt, 1, colored_res, 1, 0.)
+                mixed_gt_additional_res = cv2.addWeighted(colored_gt, 1, colored_additional_res, 1, 0.)
+                mixed_res_additional_res = cv2.addWeighted(colored_res_blue, 1, colored_additional_res_orange, 1, 0.)
+                mixed_res_additional_res[np.logical_and(additional_model_res, res) != 0] = (0, 255, 255)
+                img_cp_1 = img.copy()
+                img_cp_2 = img.copy()
+                img_cp_3 = img.copy()
+                img_cp_1[np.logical_or(res, gt_label) != 0] //= 3
+                img_cp_2[np.logical_or(additional_model_res, gt_label) != 0] //= 3
+                img_cp_3[np.logical_or(additional_model_res, res) != 0] //= 3
+                final_img_gt_res = cv2.addWeighted(img_cp_1, 1, mixed_gt_res, 1, 0.)
+                final_img_gt_additional_res = cv2.addWeighted(img_cp_2, 1, mixed_gt_additional_res, 1, 0.)
+                final_img_res_additional_res = cv2.addWeighted(img_cp_3, 1, mixed_res_additional_res, 1, 0.)
                 # cv2.destroyAllWindows()
-                cv2.imwrite(f'improvement/{image_file}_gt_res.png', final_img_gt_res)
-                cv2.imwrite(f'improvement/{image_file}_gt_additional_res.png', final_img_gt_additional_res)
-                cv2.imwrite(f'improvement/{image_file}_res_additional_res.png', final_img_res_additional_res)
+                # additional_img_res = cv2.addWeighted(res * 255, alpha, additional_img_res, 1, 0.5)
+
+                config_name = args.config.split('/')[-1].replace('.py', '')
+                additional_config_name = args.additional_config.split('/')[-1].replace('.py', '')
+                cv2.imwrite(f'{save_dir}/{filename}_{config_name}_{additional_config_name}'
+                            f'_gt_additional_res.png', final_img_gt_additional_res)
+
+                if additional_model_iou < iou - 0.3:
+                    # cv2.imshow('gt_add_res', final_img_gt_additional_res)
+                    # cv2.waitKey(0)
+                    # cv2.imshow('gt_res', final_img_gt_res)
+                    # cv2.waitKey(0)
+                    # cv2.imshow('gt_additional_res', final_img_gt_additional_res)
+                    # cv2.waitKey(0)
+                    # cv2.imshow('res_additional_res', final_img_res_additional_res)
+                    # cv2.waitKey(0)
+                    # cv2.destroyAllWindows()
+                    config_name = args.config.split('/')[-1].replace('.py', '')
+                    additional_config_name = args.additional_config.split('/')[-1].replace('.py', '')
+                    if save_dir:
+                        cv2.imwrite(f'{save_dir}/{filename}_{config_name}_{additional_config_name}'
+                                    f'_gt_res.png', final_img_gt_res)
+                        cv2.imwrite(f'{save_dir}/{filename}_{config_name}_{additional_config_name}'
+                                    f'_gt_additional_res.png', final_img_gt_additional_res)
+                        cv2.imwrite(f'{save_dir}/{filename}_{config_name}_{additional_config_name}'
+                                    f'_res_additional_res.png', final_img_res_additional_res)
 
         if save_good_bad:
             if np.abs(angle) > 60 and iou > 0.55:
