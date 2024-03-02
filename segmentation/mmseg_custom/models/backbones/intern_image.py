@@ -136,17 +136,13 @@ class CrossAttention(nn.Module):
             v_bias = self.v_bias
 
         q = F.linear(input=x, weight=self.q.weight, bias=q_bias)
-        q = q.reshape(B, N, 1, self.num_heads,
-                      -1).permute(2, 0, 3, 1,
-                                  4).squeeze(0)  # (B, N_head, N_q, dim)
+        q = q.reshape(B, N, 1, self.num_heads, -1).permute(2, 0, 3, 1, 4).squeeze(0)  # (B, N_head, N_q, dim)
 
         k = F.linear(input=k, weight=self.k.weight, bias=k_bias)
-        k = k.reshape(B, N_k, 1, self.num_heads, -1).permute(2, 0, 3, 1,
-                                                             4).squeeze(0)
+        k = k.reshape(B, N_k, 1, self.num_heads, -1).permute(2, 0, 3, 1, 4).squeeze(0)
 
         v = F.linear(input=v, weight=self.v.weight, bias=v_bias)
-        v = v.reshape(B, N_v, 1, self.num_heads, -1).permute(2, 0, 3, 1,
-                                                             4).squeeze(0)
+        v = v.reshape(B, N_v, 1, self.num_heads, -1).permute(2, 0, 3, 1, 4).squeeze(0)
 
         q = q * self.scale
         attn = (q @ k.transpose(-2, -1))  # (B, N_head, N_q, N_k)

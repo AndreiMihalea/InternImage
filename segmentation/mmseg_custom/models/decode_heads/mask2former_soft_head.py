@@ -535,7 +535,7 @@ class Mask2FormerSoftHead(BaseDecodeHead):
         # shape (num_queries, batch_size, h, w)
         soft_mask_pred = torch.einsum('bqc,bchw->bqhw', soft_mask_embed, mask_feature)
         attn_mask = F.interpolate(
-            mask_pred, #  TODO: try using the soft mask pred here
+            soft_mask_pred, #  TODO: try using the soft mask pred here
             attn_mask_target_size,
             mode='bilinear',
             align_corners=False)
@@ -583,12 +583,12 @@ class Mask2FormerSoftHead(BaseDecodeHead):
                 decoder_input = decoder_input.flatten(2).permute(0, 2, 1)
                 if isinstance(kwargs[self.additional_input], list):
                     kwargs[self.additional_input] = torch.cat(kwargs[self.additional_input]).unsqueeze(1)
-                kwargs[self.additional_input] = kwargs[self.additional_input].float()
                 if self.additional_input in ['curvature', 'category']:
+                    kwargs[self.additional_input] = kwargs[self.additional_input].float()
                     guidance_features = self.linear(kwargs[self.additional_input])
+                    guidance_features = guidance_features.unsqueeze(1)
                 elif self.additional_input == 'scenario_text':
                     guidance_features = self.text_embedding(kwargs[self.additional_input])
-                guidance_features = guidance_features.unsqueeze(1).repeat(1, 5, 1)
                 decoder_input = self.cross_attention(decoder_input, guidance_features, guidance_features)
                 # shape (batch_size, h*w, c) -> (h*w, batch_size, c)
                 decoder_input = decoder_input.permute(1, 0, 2)

@@ -57,7 +57,7 @@ inference_pipeline = [
             dict(type='ImageToTensor', keys=['img']),
             # dict(type='ToMask'),
             # dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
-            dict(type='Collect', keys=['img', 'category', 'category_for_balancing', 'curvature', 'scenario_text']),
+            dict(type='Collect', keys=['img', 'category', 'curvature', 'scenario_text']),
         ])
 ]
 data = dict(

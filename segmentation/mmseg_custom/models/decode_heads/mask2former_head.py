@@ -12,7 +12,7 @@ from mmcv.runner import ModuleList, force_fp32
 from mmseg.models.builder import HEADS, build_loss
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
 
-from classification.models.intern_image import CrossAttention
+from ..backbones.intern_image import CrossAttention
 from ...core import build_sampler, multi_apply, reduce_mean
 from ..builder import build_assigner
 from ..utils import get_uncertain_point_coords_with_randomness
@@ -480,20 +480,24 @@ class Mask2FormerHead(BaseDecodeHead):
         # multi_scale_memorys (from low resolution to high resolution)
         decoder_inputs = []
         decoder_positional_encodings = []
+
+        if self.additional_input_merging == 'cross_attention':
+            # shape (batch_size, c, h, w) -> (batch_size, h*w, c)
+            if isinstance(kwargs[self.additional_input], list):
+                kwargs[self.additional_input] = torch.cat(kwargs[self.additional_input]).unsqueeze(1)
+            if self.additional_input in ['curvature', 'category']:
+                kwargs[self.additional_input] = kwargs[self.additional_input].float()
+                guidance_features = self.linear(kwargs[self.additional_input])
+                guidance_features = guidance_features.unsqueeze(1)
+            elif self.additional_input == 'scenario_text':
+                guidance_features = self.text_embedding(kwargs[self.additional_input])
+
         for i in range(self.num_transformer_feat_level):
             decoder_input = self.decoder_input_projs[i](multi_scale_memorys[i])
             # apply cross attention
             if self.additional_input_merging == 'cross_attention':
                 # shape (batch_size, c, h, w) -> (batch_size, h*w, c)
                 decoder_input = decoder_input.flatten(2).permute(0, 2, 1)
-                if isinstance(kwargs[self.additional_input], list):
-                    kwargs[self.additional_input] = torch.cat(kwargs[self.additional_input]).unsqueeze(1)
-                kwargs[self.additional_input] = kwargs[self.additional_input].float()
-                if self.additional_input in ['curvature', 'category']:
-                    guidance_features = self.linear(kwargs[self.additional_input])
-                elif self.additional_input == 'scenario_text':
-                    guidance_features = self.text_embedding(kwargs[self.additional_input])
-                guidance_features = guidance_features.unsqueeze(1).repeat(1, 5, 1)
                 decoder_input = self.cross_attention(decoder_input, guidance_features, guidance_features)
                 # shape (batch_size, h*w, c) -> (h*w, batch_size, c)
                 decoder_input = decoder_input.permute(1, 0, 2)

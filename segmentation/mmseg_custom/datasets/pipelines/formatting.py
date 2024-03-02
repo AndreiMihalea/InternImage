@@ -152,7 +152,8 @@ class LoadCategory(object):
         """
 
         results['category'] = results['ann_info']['category']
-        results['category_for_balancing'] = results['ann_info']['category_for_balancing']
+        if 'category_for_balancing' in results['ann_info']:
+            results['category_for_balancing'] = results['ann_info']['category_for_balancing']
         results['curvature'] = results['ann_info']['curvature']
         results['scenario_text'] = results['ann_info']['scenario_text']
         return results
