@@ -33,10 +33,14 @@ beta = 1 - alpha
 
 # TODO only take what's after 18 feb
 CHECKPOINTS = [
-    'work_dirs/mask2former_internimage_b_attcurv_kitti_balanced_sampler_30',
-    # 'work_dirs/mask2former_internimage_b_attcat_kitti_balanced_sampler_30',
-    # 'work_dirs/mask2former_internimage_b_atttext_kitti_balanced_sampler_30',
+    # 'work_dirs/mask2former_soft_internimage_b_attcurv_kitti_balanced_sampler_30_loss_cls_dice_soft',
+    # 'work_dirs/mask2former_soft_internimage_b_attcat_kitti_balanced_sampler_30_loss_cls_dice_soft',
+    # 'work_dirs/mask2former_internimage_b_atttext_kitti_balanced_sampler_30_fix',
     # 'work_dirs/mask2former_internimage_b_attcurv_kitti_balanced_sampler_30',
+    'work_dirs/mask2former_internimage_b_kitti_balanced_sampler_30',
+    'work_dirs/mask2former_internimage_b_imgcat_kitti_balanced_sampler_30_fix',
+    'work_dirs/mask2former_internimage_b_imgcurv_kitti_balanced_sampler_30_fix',
+    'work_dirs/mask2former_internimage_b_imgtext_kitti_balanced_sampler_30_fix'
 ]
 
 MODEL_CONFIG_PATH = 'configs/mask2former'
@@ -73,8 +77,8 @@ def main():
         results = []
 
         checkpoint_name = checkpoint.split('/')[-1]
-        config = '_'.join(checkpoint_name.split('_')[:5])
-        config_path = os.path.join(MODEL_CONFIG_PATH, f'{config}.py')
+        config = checkpoint_name.split('_balanced_sampler')[0]
+        config_path = os.path.join(MODEL_CONFIG_PATH, f'{config}.py'.replace('kitti_kitti', 'kitti'))
         checkpoint_pth = glob.glob(f'{checkpoint}/best*.pth')[0]
         model = init_segmentor(config_path, checkpoint=None, device=args.device)
         checkpoint_dict = load_checkpoint(model, checkpoint_pth, map_location='cpu')
@@ -147,7 +151,7 @@ def main():
 
         per_frame_df = pd.DataFrame(results)
         per_frame_df = per_frame_df.append(total_results, ignore_index=True)
-        per_frame_df.to_csv(f'{checkpoint_name}.csv')
+        per_frame_df.to_csv(os.path.join(save_dir, f'{checkpoint_name}.csv'))
 
 
 if __name__ == '__main__':
