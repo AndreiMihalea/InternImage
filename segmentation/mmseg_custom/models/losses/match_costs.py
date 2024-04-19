@@ -180,6 +180,44 @@ class DiceCost:
 
 
 @MATCH_COST.register_module()
+class JaccardCost:
+    """
+    Jaccard Cost
+    """
+
+    def __init__(self, weight=1., pred_act=False, eps=1e-3):
+        """
+        Args:
+            weight (int | float, optional): loss_weight. Defaults to 1.
+            pred_act (bool, optional): Whether to apply sigmoid to mask_pred.
+                Defaults to False.
+            eps (float, optional): default 1e-12.
+        """
+        self.weight = weight
+        self.pred_act = pred_act
+        self.eps = eps
+
+    def __call__(self, mask_preds, gt_masks):
+        """
+        Args:
+            mask_preds (Tensor): Mask prediction logits in shape (N1, H, W).
+            gt_masks (Tensor): Ground truth in shape (N2, H, W).
+
+        Returns:
+            Tensor: Jaccard cost matrix in shape (N1, N2).
+        """
+        if self.pred_act:
+            mask_preds = mask_preds.sigmoid()
+        mask_preds = mask_preds.reshape((mask_preds.shape[0], -1))[:, None]
+        gt_masks = gt_masks.reshape((gt_masks.shape[0], -1))[None, :]
+        abs_pred = torch.abs(mask_preds)
+        abs_gt = torch.abs(gt_masks)
+        pred_minus_gt = torch.abs(mask_preds)
+        jaccard_cost = (abs_pred + abs_gt - pred_minus_gt) / (abs_pred + abs_gt + pred_minus_gt)
+        jaccard_cost = jaccard_cost.mean(2)
+        return jaccard_cost * self.weight
+
+@MATCH_COST.register_module()
 class CrossEntropyLossCost:
     """CrossEntropyLossCost.
 

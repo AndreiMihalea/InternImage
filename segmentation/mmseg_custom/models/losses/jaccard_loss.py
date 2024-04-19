@@ -24,10 +24,11 @@ def jaccard_loss(pred,
         avg_factor (int, optional): Average factor that is used to average
             the loss. Defaults to None.
     """
-    pred_plus_gt = torch.abs(pred + target)
+    abs_pred = torch.abs(pred)
+    abs_gt = torch.abs(target)
     pred_minus_gt = torch.abs(pred - target)
 
-    loss = (pred_plus_gt - pred_minus_gt) / (pred_plus_gt + pred_minus_gt)
+    loss = (abs_pred + abs_gt - pred_minus_gt) / (abs_pred + abs_gt + pred_minus_gt)
 
     if weight is not None:
         assert weight.ndim == loss.ndim
@@ -42,7 +43,6 @@ class JaccardLoss(nn.Module):
                  use_sigmoid=True,
                  activate=True,
                  reduction='mean',
-                 naive_dice=False,
                  loss_weight=1.0):
         """
         Args:
@@ -54,18 +54,12 @@ class JaccardLoss(nn.Module):
             reduction (str, optional): The method used
                 to reduce the loss. Options are "none",
                 "mean" and "sum". Defaults to 'mean'.
-            naive_dice (bool, optional): If false, use the dice
-                loss defined in the V-Net paper, otherwise, use the
-                naive dice loss in which the power of the number in the
-                denominator is the first power instead of the second
-                power.Defaults to False.
             loss_weight (float, optional): Weight of loss. Defaults to 1.0.
         """
 
         super(JaccardLoss, self).__init__()
         self.use_sigmoid = use_sigmoid
         self.reduction = reduction
-        self.naive_dice = naive_dice
         self.loss_weight = loss_weight
         self.activate = activate
 

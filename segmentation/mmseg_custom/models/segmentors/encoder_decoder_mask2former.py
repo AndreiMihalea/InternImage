@@ -33,7 +33,7 @@ class EncoderDecoderMask2Former(BaseSegmentor):
                  test_cfg=None,
                  pretrained=None,
                  init_cfg=None,
-                 output_soft_head=False):
+                 soft_output=False):
         super(EncoderDecoderMask2Former, self).__init__(init_cfg)
         if pretrained is not None:
             assert backbone.get('pretrained') is None, \
@@ -43,16 +43,16 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         if neck is not None:
             self.neck = builder.build_neck(neck)
 
-        self.output_soft_head = output_soft_head
         self.additional_input = additional_input
         self.additional_input_merging = additional_input_merging
 
+        self.soft_output = soft_output
+
         decode_head.update(train_cfg=train_cfg)
         decode_head.update(test_cfg=test_cfg)
-        if output_soft_head:
-            decode_head.update(output_soft_head=self.output_soft_head)
         decode_head.update(additional_input=self.additional_input)
         decode_head.update(additional_input_merging=self.additional_input_merging)
+        decode_head.update(soft_output=self.soft_output)
 
         if self.additional_input_merging == 'input_concat':
             if self.additional_input == 'category' or self.additional_input == 'curvature':
@@ -118,18 +118,13 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         if self.additional_input_merging == 'input_concat':
             x = self.merge_additional_input(x, **kwargs)
 
-        out, soft_out = self._decode_head_forward_test(x, img_metas, **kwargs)
+        out = self._decode_head_forward_test(x, img_metas, **kwargs)
         out = resize(
             input=out,
             size=img.shape[2:],
             mode='bilinear',
             align_corners=self.align_corners)
-        soft_out = resize(
-            input=soft_out,
-            size=img.shape[2:],
-            mode='bilinear',
-            align_corners=self.align_corners)
-        return out, soft_out
+        return out
 
     def _decode_head_forward_train(self, x, img_metas, gt_semantic_seg,
                                    **kwargs):
@@ -250,7 +245,6 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         h_grids = max(h_img - h_crop + h_stride - 1, 0) // h_stride + 1
         w_grids = max(w_img - w_crop + w_stride - 1, 0) // w_stride + 1
         preds = img.new_zeros((batch_size, num_classes, h_img, w_img))
-        soft_preds = img.new_zeros((batch_size, num_classes, h_img, w_img))
         count_mat = img.new_zeros((batch_size, 1, h_img, w_img))
         for h_idx in range(h_grids):
             for w_idx in range(w_grids):
@@ -261,13 +255,10 @@ class EncoderDecoderMask2Former(BaseSegmentor):
                 y1 = max(y2 - h_crop, 0)
                 x1 = max(x2 - w_crop, 0)
                 crop_img = img[:, :, y1:y2, x1:x2]
-                crop_seg_logit, crop_soft_seg_logit = self.encode_decode(crop_img, img_meta, **kwargs)
+                crop_seg_logit = self.encode_decode(crop_img, img_meta, **kwargs)
                 preds += F.pad(crop_seg_logit,
                                (int(x1), int(preds.shape[3] - x2), int(y1),
                                 int(preds.shape[2] - y2)))
-                soft_preds += F.pad(crop_soft_seg_logit,
-                               (int(x1), int(soft_preds.shape[3] - x2), int(y1),
-                                int(soft_preds.shape[2] - y2)))
 
                 count_mat[:, :, y1:y2, x1:x2] += 1
         assert (count_mat == 0).sum() == 0
@@ -276,7 +267,6 @@ class EncoderDecoderMask2Former(BaseSegmentor):
             count_mat = torch.from_numpy(
                 count_mat.cpu().detach().numpy()).to(device=img.device)
         preds = preds / count_mat
-        soft_preds = soft_preds / count_mat
         if rescale:
             preds = resize(
                 preds,
@@ -284,18 +274,12 @@ class EncoderDecoderMask2Former(BaseSegmentor):
                 mode='bilinear',
                 align_corners=self.align_corners,
                 warning=False)
-            soft_preds = resize(
-                soft_preds,
-                size=img_meta[0]['ori_shape'][:2],
-                mode='bilinear',
-                align_corners=self.align_corners,
-                warning=False)
-        return preds, soft_preds
+        return preds
 
     def whole_inference(self, img, img_meta, rescale):
         """Inference with full image."""
 
-        seg_logit, soft_seg_logit = self.encode_decode(img, img_meta)
+        seg_logit = self.encode_decode(img, img_meta)
         if rescale:
             # support dynamic shape for onnx
             if torch.onnx.is_in_onnx_export():
@@ -308,14 +292,8 @@ class EncoderDecoderMask2Former(BaseSegmentor):
                 mode='bilinear',
                 align_corners=self.align_corners,
                 warning=False)
-            soft_seg_logit = resize(
-                soft_seg_logit,
-                size=size,
-                mode='bilinear',
-                align_corners=self.align_corners,
-                warning=False)
 
-        return seg_logit, soft_seg_logit
+        return seg_logit
 
     def inference(self, img, img_meta, rescale, **kwargs):
         """Inference with slide/whole style.
@@ -337,41 +315,39 @@ class EncoderDecoderMask2Former(BaseSegmentor):
         ori_shape = img_meta[0]['ori_shape']
         assert all(_['ori_shape'] == ori_shape for _ in img_meta)
         if self.test_cfg.mode == 'slide':
-            seg_logit, soft_seg_logit = self.slide_inference(img, img_meta, rescale, **kwargs)
+            seg_logit = self.slide_inference(img, img_meta, rescale, **kwargs)
         else:
-            seg_logit, soft_seg_logit = self.whole_inference(img, img_meta, rescale, **kwargs)
-        output = F.softmax(seg_logit, dim=1)
-        soft_output = soft_seg_logit
+            seg_logit = self.whole_inference(img, img_meta, rescale, **kwargs)
+        if self.soft_output:
+            output = seg_logit
+        else:
+            output = F.softmax(seg_logit, dim=1)
         flip = img_meta[0]['flip']
         if flip:
             flip_direction = img_meta[0]['flip_direction']
             assert flip_direction in ['horizontal', 'vertical']
             if flip_direction == 'horizontal':
                 output = output.flip(dims=(3,))
-                soft_output = soft_output.flip(dims=(3,))
             elif flip_direction == 'vertical':
                 output = output.flip(dims=(2,))
-                soft_output = soft_output.flip(dims=(2,))
 
-        return output, soft_output
+        return output
 
     def simple_test(self, img, img_meta, rescale=True, **kwargs):
         """Simple test with single image."""
-        seg_logit, soft_seg_logit = self.inference(img, img_meta, rescale, **kwargs)
-        seg_pred = seg_logit.argmax(dim=1)
+        seg_logit = self.inference(img, img_meta, rescale, **kwargs)
+        if self.soft_output:
+            seg_pred = seg_logit.sigmoid()
+        else:
+            seg_pred = seg_logit.argmax(dim=1)
         if torch.onnx.is_in_onnx_export():
             # our inference backend only support 4D output
             seg_pred = seg_pred.unsqueeze(0)
             return seg_pred
         seg_pred = seg_pred.cpu().numpy()
-        soft_seg_logit = soft_seg_logit.sigmoid().cpu().numpy()
         # unravel batch dim
         seg_pred = list(seg_pred)
-        soft_seg_logit = list(soft_seg_logit)
-        if self.output_soft_head:
-            return seg_pred, soft_seg_logit
-        else:
-            return seg_pred
+        return seg_pred
 
     def aug_test(self, imgs, img_metas, rescale=True):
         """Test with augmentations.
@@ -386,7 +362,10 @@ class EncoderDecoderMask2Former(BaseSegmentor):
             cur_seg_logit = self.inference(imgs[i], img_metas[i], rescale)
             seg_logit += cur_seg_logit
         seg_logit /= len(imgs)
-        seg_pred = seg_logit.argmax(dim=1)
+        if self.soft_output:
+            seg_pred = seg_logit.sigmoid()
+        else:
+            seg_pred = seg_logit.argmax(dim=1)
         seg_pred = seg_pred.cpu().numpy()
         # unravel batch dim
         seg_pred = list(seg_pred)

@@ -30,12 +30,12 @@ class DefaultFormatBundle(object):
 
         if 'img' in results:
             img = results['img']
-            # seg = results['gt_semantic_seg'].copy()
-            # seg = np.repeat(seg[:, :, np.newaxis], 3, axis=2)
-            # cv2.imshow("img", np.concatenate([img.astype(np.float32), seg.astype(np.float32)]))
-            # cv2.imshow("img", img.astype(np.float32))
-            # print(results['ann_info'], img.shape, seg.shape)
-            # cv2.waitKey(0)
+        #     seg = results['gt_masks'][1].copy()
+        #     seg = np.repeat(seg[:, :, np.newaxis], 3, axis=2)
+        #     cv2.imshow("img", np.concatenate([img.astype(np.float32), seg.astype(np.float32)]))
+        #     # cv2.imshow("img", img.astype(np.float32))
+        #     print(results['ann_info'], img.shape, seg.shape)
+        #     cv2.waitKey(0)
             if len(img.shape) < 3:
                 img = np.expand_dims(img, -1)
             img = np.ascontiguousarray(img.transpose(2, 0, 1))
@@ -122,7 +122,7 @@ class ToSoft:
 
         if len(gt_masks) == 0:
             gt_soft_masks = np.empty((0,) + input_dict['pad_shape'][:-1], dtype=np.float32)
-            input_dict['gt_soft_masks'] = gt_soft_masks
+            input_dict['gt_masks'] = gt_soft_masks
         else:
             for gt_mask in gt_masks:
                 gt_mask_copy = gt_mask.copy()
@@ -130,7 +130,7 @@ class ToSoft:
                     gt_mask_copy = cv2.GaussianBlur(gt_mask_copy.astype(np.float32), self.kernel_size, self.std_dev)
                 gt_soft_masks.append(gt_mask_copy)
 
-            input_dict['gt_soft_masks'] = np.array(gt_soft_masks)
+            input_dict['gt_masks'] = np.array(gt_soft_masks)
 
         return input_dict
 

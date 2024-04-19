@@ -4,7 +4,7 @@
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
 _base_ = [
-    '../_base_/models/mask2former_soft.py', '../_base_/datasets/kitti_soft.py',
+    '../_base_/models/mask2former.py', '../_base_/datasets/kitti_soft.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
 ]
 num_things_classes = 0
@@ -32,7 +32,7 @@ model = dict(
     additional_input='scenario_text',  # can be category, curvature or scenario_text
     additional_input_merging='input_concat',  # can be input_concat or cross_attention
     decode_head=dict(
-        type='Mask2FormerSoftHead',
+        type='Mask2FormerHead',
         num_things_classes=num_things_classes,
         num_stuff_classes=num_stuff_classes,
         in_channels=[112, 224, 448, 896],
@@ -112,7 +112,7 @@ model = dict(
             type='CrossEntropyLoss',
             use_sigmoid=True,
             reduction='mean',
-            loss_weight=0.0),#5.0),
+            loss_weight=5.0),#5.0),
         loss_dice=dict(
             type='DiceLoss',
             use_sigmoid=True,
@@ -121,14 +121,15 @@ model = dict(
             naive_dice=True,
             eps=1.0,
             loss_weight=5.0),#5.0),
-        loss_soft=dict(
-            type='CrossEntropyLoss',
+        loss_jaccard=dict(
+            type='JaccardLoss',
             use_sigmoid=True,
+            activate=True,
             reduction='mean',
-            loss_weight=5.0)
+            loss_weight=0.0)
     ),
     test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341)),
-    output_soft_head=True)
+    soft_output=True)
 
 # img_norm_cfg = dict(
 #     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)

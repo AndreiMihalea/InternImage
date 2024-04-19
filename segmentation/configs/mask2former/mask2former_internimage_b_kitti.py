@@ -108,6 +108,12 @@ model = dict(
             loss_weight=2.0,
             reduction='mean',
             class_weight=[1.0] * num_classes + [0.1]),
+        loss_jaccard=dict(
+                    type='JaccardLoss',
+                    use_sigmoid=True,
+                    activate=True,
+                    reduction='mean',
+                    loss_weight=0)
     ),
     test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341)))
 
@@ -129,5 +135,5 @@ data = dict(samples_per_gpu=2, workers_per_gpu=4)
 runner = dict(type='IterBasedRunner')
 optimizer_config = dict(_delete_=True, grad_clip=dict(max_norm=0.1, norm_type=2))
 checkpoint_config = dict(by_epoch=False, interval=1000, max_keep_ckpts=1)
-evaluation = dict(interval=16000, metric='mIoU', save_best='mIoU')
+evaluation = dict(interval=10, metric='mIoU', save_best='mIoU')
 # fp16 = dict(loss_scale=dict(init_scale=512))

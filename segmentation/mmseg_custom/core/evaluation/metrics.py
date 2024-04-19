@@ -6,13 +6,14 @@ from mmseg.core.evaluation.metrics import total_intersect_and_union, f_score
 
 
 def jaccard_metric(pred, gt_soft_map):
-    res_plus_gt = np.mean(np.abs(pred + gt_soft_map), axis=(1, 2))
-    res_minus_gt = np.mean(np.abs(pred - gt_soft_map), axis=(1, 2))
-    return res_plus_gt, res_minus_gt
+    abs_pred = np.mean(np.abs(pred), axis=(1, 2))
+    abs_gt = np.mean(np.abs(gt_soft_map), axis=(1, 2))
+    abs_pred_minus_gt = np.mean(np.abs(pred - gt_soft_map), axis=(1, 2))
+    return abs_pred, abs_gt, abs_pred_minus_gt
 
 
-def jm_from_preds_gt(pred_plus_gt, pred_minus_gt):
-    return (pred_plus_gt - pred_minus_gt) / (pred_plus_gt + pred_minus_gt)
+def jm_from_preds_gt(abs_pred, abs_gt, abs_pred_minus_gt):
+    return (abs_pred + abs_gt - abs_pred_minus_gt) / (abs_pred + abs_gt + abs_pred_minus_gt)
 
 
 def total_area_to_metrics(total_area_intersect,
@@ -143,19 +144,24 @@ def pre_eval_to_metrics(pre_eval_results,
     # ([A_1, ..., A_n], ..., [D_1, ..., D_n])
     pre_eval_results = tuple(zip(*pre_eval_results))
 
-    total_area_intersect = sum(pre_eval_results[0])
-    total_area_union = sum(pre_eval_results[1])
-    total_area_pred_label = sum(pre_eval_results[2])
-    total_area_label = sum(pre_eval_results[3])
+    # This means hard segmentation:
+    if len(pre_eval_results) == 4:
+        total_area_intersect = sum(pre_eval_results[0])
+        total_area_union = sum(pre_eval_results[1])
+        total_area_pred_label = sum(pre_eval_results[2])
+        total_area_label = sum(pre_eval_results[3])
 
-    ret_metrics = total_area_to_metrics(total_area_intersect, total_area_union,
-                                        total_area_pred_label,
-                                        total_area_label, metrics, nan_to_num,
-                                        beta)
-
-    if len(pre_eval_results) > 4:
-        pred_plus_gt = sum(pre_eval_results[4])
-        pred_minus_gt = sum(pre_eval_results[5])
-        ret_metrics['IoU_soft'] = jm_from_preds_gt(pred_plus_gt, pred_minus_gt)
+        ret_metrics = total_area_to_metrics(total_area_intersect, total_area_union,
+                                            total_area_pred_label,
+                                            total_area_label, metrics, nan_to_num,
+                                            beta)
+    # Soft segmentation (only have two results from the Jaccard metric)
+    else:
+        abs_pred = sum(pre_eval_results[0])
+        abs_gt = sum(pre_eval_results[1])
+        abs_pred_minus_gt = sum(pre_eval_results[2])
+        ret_metrics = {}
+        ret_metrics['IoU_soft'] = jm_from_preds_gt(abs_pred, abs_gt, abs_pred_minus_gt)
+        print(ret_metrics['IoU_soft'])
 
     return ret_metrics

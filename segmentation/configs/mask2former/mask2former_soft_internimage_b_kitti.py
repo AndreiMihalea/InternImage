@@ -4,9 +4,11 @@
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
 _base_ = [
-    '../_base_/models/mask2former_soft.py', '../_base_/datasets/kitti_soft.py',
+    '../_base_/models/mask2former.py', '../_base_/datasets/kitti_soft.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
 ]
+weight_dice = 0.0
+weight_jaccard = 5.0
 num_things_classes = 0
 num_stuff_classes = 2
 num_classes = num_things_classes + num_stuff_classes
@@ -32,7 +34,7 @@ model = dict(
     additional_input=None,  # can be category, curvature or scenario_text
     additional_input_merging=None,  # can be input_concat or cross_attention
     decode_head=dict(
-        type='Mask2FormerSoftHead',
+        type='Mask2FormerHead',
         num_things_classes=num_things_classes,
         num_stuff_classes=num_stuff_classes,
         in_channels=[112, 224, 448, 896],
@@ -112,7 +114,7 @@ model = dict(
             type='CrossEntropyLoss',
             use_sigmoid=True,
             reduction='mean',
-            loss_weight=0.0),#5.0),
+            loss_weight=5.0),
         loss_dice=dict(
             type='DiceLoss',
             use_sigmoid=True,
@@ -120,15 +122,31 @@ model = dict(
             reduction='mean',
             naive_dice=True,
             eps=1.0,
-            loss_weight=5.0),#5.0),
-        loss_soft=dict(
-            type='CrossEntropyLoss',
+            loss_weight=weight_dice),#5.0),
+        loss_jaccard=dict(
+            type='JaccardLoss',
             use_sigmoid=True,
+            activate=True,
             reduction='mean',
-            loss_weight=5.0)
+            loss_weight=weight_jaccard)
     ),
+    train_cfg=dict(
+        num_points=12544,
+        oversample_ratio=3.0,
+        importance_sample_ratio=0.75,
+        assigner=dict(
+            type='MaskHungarianAssigner',
+            cls_cost=dict(type='ClassificationCost', weight=2.0),
+            mask_cost=dict(
+                type='CrossEntropyLossCost', weight=5.0, use_sigmoid=True),
+            dice_cost=dict(
+                type='DiceCost', weight=weight_dice, pred_act=True, eps=1.0),
+            jaccard_cost=dict(
+                type='JaccardCost', weight=weight_jaccard, pred_act=True, eps=1.0),
+        ),
+        sampler=dict(type='MaskPseudoSampler')),
     test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341)),
-    output_soft_head=True)
+    soft_output=True)
 
 # img_norm_cfg = dict(
 #     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)

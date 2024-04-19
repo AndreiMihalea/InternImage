@@ -17,7 +17,6 @@ train_pipeline = [
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size=crop_size, pad_val=0, seg_pad_val=0),
     dict(type='ToMask'),
-    dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels', 'category', 'category_for_balancing',
                                'curvature', 'scenario_text'])
@@ -37,7 +36,6 @@ test_pipeline = [
             dict(type='Normalize', **img_norm_cfg),
             dict(type='ImageToTensor', keys=['img']),
             dict(type='ToMask'),
-            dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
             dict(type='Collect', keys=['img', 'category', 'category_for_balancing', 'curvature', 'scenario_text']),
         ])
 ]

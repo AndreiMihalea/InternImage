@@ -1,5 +1,5 @@
-num_things_classes = 100
-num_stuff_classes = 50
+num_things_classes = 0
+num_stuff_classes = 2
 num_classes = num_things_classes + num_stuff_classes
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 model = dict(
@@ -107,7 +107,14 @@ model = dict(
             reduction='mean',
             naive_dice=True,
             eps=1.0,
-            loss_weight=5.0)),
+            loss_weight=5.0),
+        loss_jaccard=dict(
+            type='JaccardLoss',
+            use_sigmoid=True,
+            activate=True,
+            reduction='mean',
+            loss_weight=0.0)
+    ),
     train_cfg=dict(
         num_points=12544,
         oversample_ratio=3.0,

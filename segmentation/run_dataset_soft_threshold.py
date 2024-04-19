@@ -4,6 +4,8 @@ import os
 from argparse import ArgumentParser
 
 import numpy as np
+
+
 from tqdm import tqdm
 
 import mmcv_custom  # noqa: F401,F403
@@ -15,6 +17,7 @@ from mmcv.parallel import collate, scatter
 from mmseg.core import get_classes
 from mmseg.datasets.pipelines import Compose
 import cv2
+import seaborn as sns
 
 import torch
 
@@ -43,35 +46,11 @@ def main():
     parser.add_argument('--out', type=str, default="demo", help='out dir')
     parser.add_argument(
         '--device', default='cuda:0', help='Device used for inference')
-    parser.add_argument(
-        '--palette',
-        default='ade20k',
-        choices=['ade20k', 'cityscapes', 'cocostuff'],
-        help='Color palette used for segmentation map')
-    parser.add_argument(
-        '--opacity',
-        type=float,
-        default=0.5,
-        help='Opacity of painted segmentation map. In (0, 1] range.')
-    parser.add_argument('--soft_output', action='store_true',
-                        help='Specifies whether the network gives a soft output')
 
     args = parser.parse_args()
 
-    save_good_bad = args.save_good_bad
-
-    if save_good_bad:
-        out_dirs_lv0 = ['good', 'bad']
-        out_dirs_lv1 = ['straight', 'wide', 'tight']
-
-        for lv0 in out_dirs_lv0:
-            for lv1 in out_dirs_lv1:
-                save_path = os.path.join(lv0, lv1)
-                if not os.path.exists(save_path):
-                    os.makedirs(save_path)
-
-    if not os.path.exists('improvement'):
-        os.makedirs('improvement')
+    out = args.out
+    os.makedirs(out, exist_ok=True)
 
     # build the model from a config file and a checkpoint file
 
@@ -82,10 +61,6 @@ def main():
         model.CLASSES = checkpoint['meta']['CLASSES']
     else:
         model.CLASSES = get_classes(args.palette)
-
-    if args.soft_output:
-        model.output_soft_head = True
-        model.decode_head.output_soft_head = True
 
     horizon = args.horizon
     split = f'{args.split}_{horizon}'
@@ -105,7 +80,7 @@ def main():
 
     images_path = os.path.join(args.dataset_path, 'images')
 
-    for thr in range(40, 51, 1):
+    for thr in range(45, 46, 1):
         total_intersection = 0
         total_union = 0
 
@@ -113,7 +88,7 @@ def main():
         total_pixels = 0
 
         thr = thr / 100
-        for row in tqdm(split_data[0:]):
+        for row in tqdm(split_data[::10]):
             row = row.strip()
             if len(row.split(',')) == 3:
                 image_file, angle, _ = row.split(',')
@@ -142,15 +117,17 @@ def main():
 
 
             result = inference_segmentor_custom(model, image_path_og, ann_info)
-            res = result[1][0][1]
+            # print(type(result), len(result), type(result[0]), result[0].shape)
+            res = result[0][1].copy()
             res[res > thr] = 1
             res[res != 1] = 0
-            # print(result[1][0][0].max(), result[1][0][0].min())
+            # print(result[0][1].max(), result[0][1].min())
+            heatmap = cv2.applyColorMap((result[0][1] * 255.).astype(np.uint8), cv2.COLORMAP_MAGMA)
 
             intersection = np.logical_and(gt_label, res)
             union = np.logical_or(gt_label, res)
 
-            # cv2.imshow("soft", intersection.astype(np.float32))
+            # cv2.imshow("soft", heatmap)
             # cv2.waitKey(0)
 
             iou = np.sum(intersection) / np.sum(union) if np.sum(union) > 0 else 0
@@ -163,58 +140,22 @@ def main():
             total_matching_pixels += np.sum((gt_label == res) * mask)
             total_pixels += np.sum(gt_label)
 
-            img_og_cp_1 = img.copy()
-            img_og_cp_2 = img.copy()
 
-            # cv2.imshow('res', img_res)
-            # cv2.waitKey(0)
-
-            # cv2.imwrite(f'demo/synasc/{split}_demo_rgb.png', img_og)
-            # cv2.imwrite(f'demo/synasc/{split}_demo_label.png', ss_label * 255)
-            # cv2.imwrite(f'demo/synasc/{split}_demo_res.png', res * 255)
-            # cv2.imwrite(f'demo/synasc/{split}_demo_rgb_label.png', img_label)
-            # cv2.imwrite(f'demo/synasc/{split}_demo_rgb_res.png', img_res)
             ann_info['scenario_text'] = angle
 
             colored_res = colorize_mask(res, (0, 0, 255))
-            colored_res_blue = colorize_mask(res, (255, 255, 102))
             colored_gt = colorize_mask(gt_label, (0, 255, 0))
             mixed_gt_res = cv2.addWeighted(colored_gt, 1, colored_res, 1, 0.)
             img_cp_1 = img.copy()
-            img_cp_2 = img.copy()
-            img_cp_3 = img.copy()
             img_cp_1[np.logical_or(res, gt_label) != 0] //= 3
             final_img_gt_res = cv2.addWeighted(img_cp_1, 1, mixed_gt_res, 1, 0.)
-            # cv2.destroyAllWindows()
-            # additional_img_res = cv2.addWeighted(res * 255, alpha, additional_img_res, 1, 0.5)
-            # if additional_model_iou > iou + 0.2:
-            #     cv2.imshow('gt_res', final_img_gt_additional_res)
-            #     cv2.waitKey(0)
-            #     cv2.imshow('gt_res', final_img_gt_res)
-            #     cv2.waitKey(0)
-            #     # cv2.imshow('gt_additional_res', final_img_gt_additional_res)
-            #     # cv2.waitKey(0)
-            #     # cv2.imshow('res_additional_res', final_img_res_additional_res)
-            #     # cv2.waitKey(0)
-            #     # cv2.destroyAllWindows()
-            #     cv2.imwrite(f'improvement/{image_file}_gt_res.png', final_img_gt_res)
-            #     cv2.imwrite(f'improvement/{image_file}_gt_additional_res.png', final_img_gt_additional_res)
-            #     cv2.imwrite(f'improvement/{image_file}_res_additional_res.png', final_img_res_additional_res)
 
-            if save_good_bad:
-                if np.abs(angle) > 60 and iou > 0.55:
-                    cv2.imwrite(os.path.join("good", "tight", image_file), img_res)
-                elif iou < 0.2:
-                    cv2.imwrite(os.path.join("bad", "tight", image_file), img_res)
-                elif np.abs(angle) < 3 and iou > 0.9:
-                    cv2.imwrite(os.path.join("good", "straight", image_file), img_res)
-                elif np.abs(angle) < 3 and iou < 0.3:
-                    cv2.imwrite(os.path.join("bad", "straight", image_file), img_res)
-                elif np.abs(angle) > 20 and np.abs(angle) < 40 and iou > 0.8:
-                    cv2.imwrite(os.path.join("good", "wide", image_file), img_res)
-                elif iou < 0.4:
-                    cv2.imwrite(os.path.join("bad", "wide", image_file), img_res)
-            # print(f"Result is saved at {out_path}")
+            # cv2.imshow('final_img', final_img_gt_res)
+            # cv2.waitKey()
+
+            cv2.imwrite(os.path.join(out, f'{image_file}'.replace('.png', '_heatmap.png')), heatmap)
+            cv2.imwrite(os.path.join(out, f'{image_file}'.replace('.png', '_threshold.png')), final_img_gt_res)
+
         print(round(total_intersection / total_union * 100, 2), round(total_matching_pixels / total_pixels * 100, 2), thr)
 
 

@@ -30,7 +30,7 @@ TURNING_SCENARIOS = ["TIGHT LEFT", "SLIGHT LEFT", "FORWARD", "SLIGHT RIGHT", "TI
 class UPBDataset(CustomDataset):
     CLASSES = ('rest', 'path')
     PALETTE = [[0, 0, 255], [255, 0, 0]]
-    def __init__(self, split, **kwargs):
+    def __init__(self, split, soft_output=False, **kwargs):
         super(UPBDataset, self).__init__(
             img_suffix='.png',
             seg_map_suffix='.png',
@@ -38,8 +38,7 @@ class UPBDataset(CustomDataset):
             reduce_zero_label=False,
             **kwargs)
 
-        self.to_mask = None
-        self.to_soft = None
+        self.soft_output = soft_output
 
         if self.test_mode:
             for step in kwargs['pipeline']:
@@ -117,14 +116,6 @@ class UPBDataset(CustomDataset):
         if self.custom_classes:
             results['label_map'] = self.label_map
 
-    def get_gt_soft_seg_map_by_idx(self, index):
-        """Get one ground truth segmentation map for evaluation."""
-        ann_info = self.get_ann_info(index)
-        results = dict(ann_info=ann_info)
-        self.pre_pipeline(results)
-        self.gt_seg_map_loader(results)
-        return self.to_soft(self.to_mask(results))['gt_soft_masks']
-
     def __getitem__(self, idx):
         """Get training/test data after pipeline.
 
@@ -141,6 +132,14 @@ class UPBDataset(CustomDataset):
         else:
             return self.prepare_train_img(idx)
 
+    def get_gt_mask_by_idx(self, index):
+        """Get one ground truth mask for evaluation"""
+        ann_info = self.get_ann_info(index)
+        results = dict(ann_info=ann_info)
+        self.pre_pipeline(results)
+        self.gt_seg_map_loader(results)
+        return self.to_soft(self.to_mask(results))['gt_masks']
+
     def pre_eval(self, preds, indices):
         """Collect eval result from each iteration.
 
@@ -155,44 +154,34 @@ class UPBDataset(CustomDataset):
                 area_ground_truth).
         """
 
-        hard_preds = None
-        soft_preds = None
-
-        # If preds is a tuple, it means there are both hard and soft predictions
-        if isinstance(preds, tuple):
-            hard_preds = preds[0]
-            soft_preds = preds[1]
-        else:
-            hard_preds = preds
-
         # In order to compat with batch inference
         if not isinstance(indices, list):
             indices = [indices]
-        if not isinstance(hard_preds, list):
-            hard_preds = [hard_preds]
+        if not isinstance(preds, list):
+            preds = [preds]
 
         pre_eval_results = []
 
-        for it, (hard_pred, index) in enumerate(zip(hard_preds, indices)):
-            seg_map = self.get_gt_seg_map_by_idx(index)
-            soft_seg_map = self.get_gt_soft_seg_map_by_idx(index)
-            i_and_u = intersect_and_union(
-                    hard_pred,
-                    seg_map,
-                    len(self.CLASSES),
-                    self.ignore_index,
-                    # as the labels has been converted when dataset initialized
-                    # in `get_palette_for_custom_classes ` this `label_map`
-                    # should be `dict()`, see
-                    # https://github.com/open-mmlab/mmsegmentation/issues/1415
-                    # for more ditails
-                    label_map=dict(),
-                    reduce_zero_label=self.reduce_zero_label)
-            if soft_preds:
-                soft_pred = soft_preds[it]
-                jm = jaccard_metric(soft_pred, soft_seg_map)
-                pre_eval_results.append((*i_and_u, *jm))
+        for it, (pred, index) in enumerate(zip(preds, indices)):
+            if self.soft_output:
+                soft_pred = pred
+                mask = self.get_gt_mask_by_idx(index)
+                jm = jaccard_metric(soft_pred, mask)
+                pre_eval_results.append(jm)
             else:
+                seg_map = self.get_gt_seg_map_by_idx(index)
+                i_and_u = intersect_and_union(
+                        pred,
+                        seg_map,
+                        len(self.CLASSES),
+                        self.ignore_index,
+                        # as the labels has been converted when dataset initialized
+                        # in `get_palette_for_custom_classes ` this `label_map`
+                        # should be `dict()`, see
+                        # https://github.com/open-mmlab/mmsegmentation/issues/1415
+                        # for more ditails
+                        label_map=dict(),
+                        reduce_zero_label=self.reduce_zero_label)
                 pre_eval_results.append(i_and_u)
 
         return pre_eval_results

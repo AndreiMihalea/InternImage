@@ -148,7 +148,6 @@ class DiceLoss(nn.Module):
         Returns:
             torch.Tensor: The calculated loss
         """
-
         assert reduction_override in (None, 'none', 'mean', 'sum')
         reduction = (reduction_override
                      if reduction_override else self.reduction)

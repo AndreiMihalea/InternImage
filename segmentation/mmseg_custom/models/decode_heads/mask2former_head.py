@@ -70,11 +70,13 @@ class Mask2FormerHead(BaseDecodeHead):
                  loss_cls=None,
                  loss_mask=None,
                  loss_dice=None,
+                 loss_jaccard=None,
                  train_cfg=None,
                  test_cfg=None,
                  init_cfg=None,
                  additional_input=None,
                  additional_input_merging=None,
+                 soft_output=False,
                  **kwargs):
         super(Mask2FormerHead, self).__init__(
             in_channels=in_channels,
@@ -142,6 +144,7 @@ class Mask2FormerHead(BaseDecodeHead):
         self.loss_cls = build_loss(loss_cls)
         self.loss_mask = build_loss(loss_mask)
         self.loss_dice = build_loss(loss_dice)
+        self.loss_jaccard = build_loss(loss_jaccard)
 
         self.additional_input = additional_input
         self.additional_input_merging = additional_input_merging
@@ -152,6 +155,8 @@ class Mask2FormerHead(BaseDecodeHead):
             elif self.additional_input == 'scenario_text':
                 self.text_embedding = nn.Embedding(5, 256)
             self.cross_attention = CrossAttention(256)
+
+        self.soft_output = soft_output
 
     def init_weights(self):
         for m in self.decoder_input_projs:
@@ -341,7 +346,8 @@ class Mask2FormerHead(BaseDecodeHead):
             # zero match
             loss_dice = mask_preds.sum()
             loss_mask = mask_preds.sum()
-            return loss_cls, loss_mask, loss_dice
+            loss_jaccard = mask_preds.sum()
+            return loss_cls, loss_mask, loss_dice, loss_jaccard
 
         with torch.no_grad():
             points_coords = get_uncertain_point_coords_with_randomness(
@@ -358,6 +364,9 @@ class Mask2FormerHead(BaseDecodeHead):
         loss_dice = self.loss_dice(
             mask_point_preds, mask_point_targets, avg_factor=num_total_masks)
 
+        # jaccard loss
+        loss_jaccard = self.loss_jaccard(mask_point_preds, mask_point_targets, avg_factor=num_total_masks)
+
         # mask loss
         # shape (num_queries, num_points) -> (num_queries * num_points, )
         mask_point_preds = mask_point_preds.reshape(-1,1)
@@ -368,7 +377,7 @@ class Mask2FormerHead(BaseDecodeHead):
             mask_point_targets,
             avg_factor=num_total_masks * self.num_points)
 
-        return loss_cls, loss_mask, loss_dice
+        return loss_cls, loss_mask, loss_dice, loss_jaccard
 
     @force_fp32(apply_to=('all_cls_scores', 'all_mask_preds'))
     def loss(self, all_cls_scores, all_mask_preds, gt_labels_list,
@@ -395,7 +404,7 @@ class Mask2FormerHead(BaseDecodeHead):
         all_gt_labels_list = [gt_labels_list for _ in range(num_dec_layers)]
         all_gt_masks_list = [gt_masks_list for _ in range(num_dec_layers)]
         img_metas_list = [img_metas for _ in range(num_dec_layers)]
-        losses_cls, losses_mask, losses_dice = multi_apply(
+        losses_cls, losses_mask, losses_dice, losses_jaccard = multi_apply(
             self.loss_single, all_cls_scores, all_mask_preds,
             all_gt_labels_list, all_gt_masks_list, img_metas_list)
 
@@ -404,13 +413,15 @@ class Mask2FormerHead(BaseDecodeHead):
         loss_dict['loss_cls'] = losses_cls[-1]
         loss_dict['loss_mask'] = losses_mask[-1]
         loss_dict['loss_dice'] = losses_dice[-1]
+        loss_dict['loss_jaccard'] = losses_jaccard[-1]
         # loss from other decoder layers
         num_dec_layer = 0
-        for loss_cls_i, loss_mask_i, loss_dice_i in zip(
-                losses_cls[:-1], losses_mask[:-1], losses_dice[:-1]):
+        for loss_cls_i, loss_mask_i, loss_dice_i, loss_jaccard_i in zip(
+                losses_cls[:-1], losses_mask[:-1], losses_dice[:-1], losses_jaccard[:-1]):
             loss_dict[f'd{num_dec_layer}.loss_cls'] = loss_cls_i
             loss_dict[f'd{num_dec_layer}.loss_mask'] = loss_mask_i
             loss_dict[f'd{num_dec_layer}.loss_dice'] = loss_dice_i
+            loss_dict[f'd{num_dec_layer}.loss_jaccard'] = loss_jaccard_i
             num_dec_layer += 1
         return loss_dict
 
@@ -607,6 +618,7 @@ class Mask2FormerHead(BaseDecodeHead):
 
         # semantic inference
         cls_score = F.softmax(cls_score, dim=-1)[..., :-1]
-        mask_pred = mask_pred.sigmoid()
+        if not self.soft_output:
+            mask_pred = mask_pred.sigmoid()
         seg_mask = torch.einsum('bqc,bqhw->bchw', cls_score, mask_pred)
-        return seg_mask, seg_mask
+        return seg_mask
