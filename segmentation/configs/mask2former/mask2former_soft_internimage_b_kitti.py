@@ -7,7 +7,7 @@ _base_ = [
     '../_base_/models/mask2former.py', '../_base_/datasets/kitti_soft.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
 ]
-weight_dice = 0.0
+weight_dice = 5.0
 weight_jaccard = 5.0
 num_things_classes = 0
 num_stuff_classes = 2

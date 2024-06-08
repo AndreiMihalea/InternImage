@@ -161,6 +161,7 @@ class DiceCost:
         gt_masks = gt_masks.reshape((gt_masks.shape[0], -1)).float()
         numerator = 2 * torch.einsum('nc,mc->nm', mask_preds, gt_masks)
         denominator = mask_preds.sum(-1)[:, None] + gt_masks.sum(-1)[None, :]
+        denominator_2 = (mask_preds[:, None] + gt_masks[None, :]).sum(-1)
         loss = 1 - (numerator + self.eps) / (denominator + self.eps)
         return loss
 
@@ -212,8 +213,8 @@ class JaccardCost:
         gt_masks = gt_masks.reshape((gt_masks.shape[0], -1))[None, :]
         abs_pred = torch.abs(mask_preds)
         abs_gt = torch.abs(gt_masks)
-        pred_minus_gt = torch.abs(mask_preds)
-        jaccard_cost = (abs_pred + abs_gt - pred_minus_gt) / (abs_pred + abs_gt + pred_minus_gt)
+        pred_minus_gt = torch.abs(mask_preds - gt_masks)
+        jaccard_cost = (abs_pred + abs_gt - pred_minus_gt + self.eps) / (abs_pred + abs_gt + pred_minus_gt + self.eps)
         jaccard_cost = jaccard_cost.mean(2)
         return jaccard_cost * self.weight
 

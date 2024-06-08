@@ -7,6 +7,7 @@ from mmseg.models.losses.utils import weight_reduce_loss
 def jaccard_loss(pred,
                  target,
                  weight=None,
+                 eps=1e-3,
                  reduction='mean',
                  avg_factor=None):
     """
@@ -24,11 +25,14 @@ def jaccard_loss(pred,
         avg_factor (int, optional): Average factor that is used to average
             the loss. Defaults to None.
     """
-    abs_pred = torch.abs(pred)
-    abs_gt = torch.abs(target)
-    pred_minus_gt = torch.abs(pred - target)
+    pred = pred.flatten(1)
+    target = target.flatten(1)
 
-    loss = (abs_pred + abs_gt - pred_minus_gt) / (abs_pred + abs_gt + pred_minus_gt)
+    abs_pred = torch.abs(pred).sum(1)
+    abs_gt = torch.abs(target).sum(1)
+    pred_minus_gt = torch.abs(pred - target).sum(1)
+
+    loss = (abs_pred + abs_gt - pred_minus_gt + eps) / (abs_pred + abs_gt + pred_minus_gt + eps)
 
     if weight is not None:
         assert weight.ndim == loss.ndim
@@ -43,7 +47,8 @@ class JaccardLoss(nn.Module):
                  use_sigmoid=True,
                  activate=True,
                  reduction='mean',
-                 loss_weight=1.0):
+                 loss_weight=1.0,
+                 eps=1e-3):
         """
         Args:
             use_sigmoid (bool, optional): Whether to the prediction is
@@ -55,6 +60,7 @@ class JaccardLoss(nn.Module):
                 to reduce the loss. Options are "none",
                 "mean" and "sum". Defaults to 'mean'.
             loss_weight (float, optional): Weight of loss. Defaults to 1.0.
+            eps (float): Avoid dividing by zero. Defaults to 1e-3.
         """
 
         super(JaccardLoss, self).__init__()
@@ -62,6 +68,7 @@ class JaccardLoss(nn.Module):
         self.reduction = reduction
         self.loss_weight = loss_weight
         self.activate = activate
+        self.eps = eps
 
     def forward(self,
                 pred,
@@ -99,6 +106,7 @@ class JaccardLoss(nn.Module):
             pred,
             target,
             weight,
+            self.eps,
             reduction=reduction,
             avg_factor=avg_factor)
 
