@@ -6,7 +6,7 @@ img_norm_cfg = dict(
 crop_size = (200, 664)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations', reduce_zero_label=False),
+    dict(type='LoadAnnotationsSplitByCategory', reduce_zero_label=False),
     dict(type='LoadCategory'),
     # dict(type='PerspectiveAug', k=[[0.61, 0, 0.5], [0, 1.36, 0.5], [0, 0, 1]],
     #      m=[[1, 0, 0, 0.00], [0, 1, 0, 1.65], [0, 0, 1, 1.54], [0, 0, 0, 1]]),
@@ -23,7 +23,7 @@ train_pipeline = [
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations', reduce_zero_label=False),
+    dict(type='LoadAnnotationsSplitByCategory', reduce_zero_label=False),
     dict(type='LoadCategory'),
     dict(
         type='MultiScaleFlipAug',
@@ -41,7 +41,7 @@ test_pipeline = [
 ]
 inference_pipeline = [
     dict(type='LoadImageFromFile'),
-    # dict(type='LoadAnnotations', reduce_zero_label=False),
+    # dict(type='LoadAnnotationsSplitByCategory', reduce_zero_label=False),
     dict(type='LoadCategory'),
     dict(
         type='MultiScaleFlipAug',

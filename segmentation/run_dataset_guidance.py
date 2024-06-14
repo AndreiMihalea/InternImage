@@ -96,7 +96,6 @@ def main():
             angle = float(angle)
             limits = [-float('inf'), *LIMITS, float('inf')]
             limits_scenarios = [-float('inf'), *LIMITS_SCENARIOS, float('inf')]
-            category = 0#bisect.bisect_right(limits, angle) - 1
             category_scenarios = bisect.bisect_right(limits_scenarios, angle) - 1
             # print(int(angle), limits[category], limits_scenarios[category_scenarios])
             image_path_og = os.path.join(images_path, image_file)
@@ -113,7 +112,7 @@ def main():
 
             for checkpoint_name in models:
                 if 'imgcat' in checkpoint_name:
-                    guidance_category = category
+                    guidance_category = category_scenarios
                 elif 'imgcurv' in checkpoint_name:
                     guidance_category = int(angle)
                 elif 'imgtext' in checkpoint_name:
@@ -126,7 +125,7 @@ def main():
                 if os.path.exists(output_file):
                     continue
 
-                ann_info = {'category': category, 'curvature': int(angle), 'scenario_text': category_scenarios}
+                ann_info = {'category': category_scenarios, 'curvature': int(angle), 'scenario_text': category_scenarios}
 
                 model = models[checkpoint_name]
                 result = inference_segmentor_custom(model, image_path_og, ann_info)

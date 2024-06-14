@@ -65,7 +65,7 @@ class DistributedWeightedSampler(Sampler):
         # get targets (you can alternatively pass them in __init__, if this op is expensive)
         # print(self.dataset.__dir__())
         # print(self.dataset.img_infos)
-        targets = torch.tensor([x['ann']['category'] for x in self.dataset.img_infos])
+        targets = torch.tensor([x['ann']['category_for_balancing'] for x in self.dataset.img_infos])
         # assert len(targets) == self.num_samples * self.num_replicas
         weights = self.calculate_weights(targets[self.rank:self.total_size:self.num_replicas])
 
@@ -309,7 +309,7 @@ def build_dataloader(dataset,
     Returns:
         DataLoader: A PyTorch dataloader.
     """
-    targets = [x['ann']['category'] for x in dataset.img_infos]
+    targets = [x['ann']['category_for_balancing'] for x in dataset.img_infos]
     print(dataset)
     class_weights = [1, 0.2, 0.02, 0.02, 0.2, 1.]
     weights = [class_weights[int(target)] for target in targets]

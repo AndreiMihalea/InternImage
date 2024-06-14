@@ -71,7 +71,7 @@ class ToMask(object):
 
     def __call__(self, results):
         gt_semantic_seg = results['gt_semantic_seg']
-        gt_semantic_seg[gt_semantic_seg == 255] = 1
+        # gt_semantic_seg[gt_semantic_seg == 255] = 1
         gt_labels = np.unique(gt_semantic_seg)
         # print(gt_labels)
         # remove ignored region
@@ -133,28 +133,3 @@ class ToSoft:
             input_dict['gt_masks'] = np.array(gt_soft_masks)
 
         return input_dict
-
-
-@PIPELINES.register_module()
-class LoadCategory(object):
-
-    def __init__(self):
-        pass
-
-    def __call__(self, results):
-        """Call function to load multiple types annotations.
-
-        Args:
-            results (dict): Result dict from :obj:`mmseg.CustomDataset`.
-
-        Returns:
-            dict: The dict contains loaded semantic segmentation annotations.
-        """
-
-        results['category'] = results['ann_info']['category']
-        if 'category_for_balancing' in results['ann_info']:
-            results['category_for_balancing'] = results['ann_info']['category_for_balancing']
-        results['curvature'] = results['ann_info']['curvature']
-        results['scenario_text'] = results['ann_info']['scenario_text']
-        return results
-

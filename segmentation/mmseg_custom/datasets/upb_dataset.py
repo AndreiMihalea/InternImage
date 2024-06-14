@@ -77,22 +77,30 @@ class UPBDataset(CustomDataset):
             with open(split) as f:
                 for line in f:
                     nr += 1
-                    img_name, euler_pose, _ = line.strip().split(',')
+                    line_split = line.strip().split(',')
+                    # category is in file (TODO: should probably remove this)
+                    if len(line_split) == 3:
+                        img_name, euler_pose, _ = line_split
+                    else:
+                        img_name, euler_pose = line_split
                     euler_pose = float(euler_pose)
                     img_info = dict(filename=img_name)
                     limits = [-float('inf'), *LIMITS, float('inf')]
                     limits_scenarios = [-float('inf'), *LIMITS_SCENARIOS, float('inf')]
-                    category = bisect.bisect_right(limits, euler_pose) - 1
-                    category_scenarios = bisect.bisect_right(limits_scenarios, euler_pose) - 1
-                    if category in categories:
-                        categories[category] += 1
+                    balancing_category = bisect.bisect_right(limits, euler_pose) - 1
+                    scenario_category = bisect.bisect_right(limits_scenarios, euler_pose) - 1
+                    if balancing_category in categories:
+                        categories[balancing_category] += 1
                     else:
-                        categories[category] = 1
+                        categories[balancing_category] = 1
                     if ann_dir is not None:
                         seg_map = img_name
-                        img_info['ann'] = dict(seg_map=seg_map, euler_pose=euler_pose, category=float(category),
-                                               category_for_balancing=category,
-                                               curvature=float(euler_pose), scenario_text=category_scenarios)
+                        img_info['ann'] = dict(seg_map=seg_map,
+                                               euler_pose=euler_pose,
+                                               category=scenario_category,
+                                               category_for_balancing=balancing_category,
+                                               curvature=float(euler_pose),
+                                               scenario_text=scenario_category)
                     img_infos.append(img_info)
                 img_infos = sorted(img_infos, key=lambda x: x['filename'])
             print(categories, sum(categories.values()), nr)
