@@ -8,7 +8,7 @@ _base_ = [
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
 ]
 num_things_classes = 0
-num_stuff_classes = 2
+num_stuff_classes = 7
 num_classes = num_things_classes + num_stuff_classes
 crop_size = (200, 664)
 pretrained = 'https://huggingface.co/OpenGVLab/InternImage/resolve/main/internimage_b_1k_224.pth'
@@ -135,5 +135,5 @@ data = dict(samples_per_gpu=2, workers_per_gpu=4)
 runner = dict(type='IterBasedRunner')
 optimizer_config = dict(_delete_=True, grad_clip=dict(max_norm=0.1, norm_type=2))
 checkpoint_config = dict(by_epoch=False, interval=1000, max_keep_ckpts=1)
-evaluation = dict(interval=10, metric='mIoU', save_best='mIoU')
+evaluation = dict(interval=16000, metric='mIoU', save_best='mIoU')
 # fp16 = dict(loss_scale=dict(init_scale=512))

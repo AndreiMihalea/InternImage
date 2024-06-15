@@ -78,7 +78,6 @@ def train_segmentor_custom(model,
             categories[cat] += 1
 
     print(categories, 'categories', sum(categories.values()))
-    # print(eh)
 
     # put model on devices
     if distributed:
@@ -391,10 +390,10 @@ def main():
     model.CLASSES = datasets[0].CLASSES
     # passing checkpoint meta for saving best checkpoint
     meta.update(cfg.checkpoint_config.meta)
-    
+
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
-    
+
     # train_segmentor(model,
     #                 datasets,
     #                 cfg,

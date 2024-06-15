@@ -1,6 +1,16 @@
+import os
+import platform
+
+
+hostname = platform.node()
+print(hostname)
 # dataset settings
 dataset_type = 'UPBDataset'
-data_root = '/raid/andreim/kitti/data_odometry_color/segmentation'
+if hostname == 'nemodrive1':
+    storage_path = '/mnt/datadisk/andreim'
+else:
+    storage_path = '/raid/andreim'
+data_root = os.path.join(storage_path, 'kitti/data_odometry_color/segmentation')
 img_norm_cfg = dict(
     mean=[89.497, 93.675, 92.645], std=[76.422, 78.611, 80.487], to_rgb=True)
 crop_size = (200, 664)
@@ -72,20 +82,20 @@ data = dict(
         type=dataset_type,
         data_root=data_root,
         img_dir='images',
-        ann_dir='/raid/andreim/kitti/data_odometry_color/segmentation/self_supervised_labels_30',
+        ann_dir='self_supervised_labels_30',
         split='splits/test_30.txt',
         pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
         data_root=data_root,
         img_dir='images',
-        ann_dir='/raid/andreim/kitti/data_odometry_color/segmentation/self_supervised_labels_30',
+        ann_dir='self_supervised_labels_30',
         split='splits/test_30.txt',
         pipeline=test_pipeline),
     inference=dict(
         type=dataset_type,
         data_root=data_root,
         img_dir='images',
-        ann_dir='/raid/andreim/kitti/data_odometry_color/segmentation_gt/self_supervised_labels_30',
+        ann_dir='self_supervised_labels_30',
         split='splits/test_30.txt',
         pipeline=inference_pipeline))

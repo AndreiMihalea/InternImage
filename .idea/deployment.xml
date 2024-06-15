@@ -24,6 +24,13 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="nemodrive@10.89.3.45:22 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/nemodrive/workspace/andreim/InternImage" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
     </serverData>
     <option name="myAutoUpload" value="ALWAYS" />
   </component>

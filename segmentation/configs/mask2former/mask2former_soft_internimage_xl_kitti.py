@@ -8,7 +8,7 @@ _base_ = [
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
 ]
 num_things_classes = 0
-num_stuff_classes = 2
+num_stuff_classes = 7
 num_classes = num_things_classes + num_stuff_classes
 crop_size = (200, 664)
 pretrained = 'https://github.com/OpenGVLab/InternImage/releases/download/cls_model/internimage_xl_22k_192to384.pth'

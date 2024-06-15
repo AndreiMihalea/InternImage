@@ -1,12 +1,21 @@
+import os
+import platform
+
+
+hostname = platform.node()
 # dataset settings
 dataset_type = 'UPBDataset'
-data_root = '/raid/andreim/kitti/data_odometry_color/segmentation'
+if hostname == 'nemodrive1':
+    storage_path = '/mnt/datadisk/andreim'
+else:
+    storage_path = '/raid/andreim'
+data_root = os.path.join(storage_path, 'kitti/data_odometry_color/segmentation')
 img_norm_cfg = dict(
     mean=[89.497, 93.675, 92.645], std=[76.422, 78.611, 80.487], to_rgb=True)
 crop_size = (200, 664)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations', reduce_zero_label=False),
+    dict(type='LoadAnnotationsSplitByCategory', reduce_zero_label=False),
     dict(type='LoadCategory'),
     # dict(type='PerspectiveAug', k=[[0.61, 0, 0.5], [0, 1.36, 0.5], [0, 0, 1]],
     #      m=[[1, 0, 0, 0.00], [0, 1, 0, 1.65], [0, 0, 1, 1.54], [0, 0, 0, 1]]),
@@ -24,7 +33,7 @@ train_pipeline = [
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations', reduce_zero_label=False),
+    dict(type='LoadAnnotationsSplitByCategory', reduce_zero_label=False),
     dict(type='LoadCategory'),
     dict(
         type='MultiScaleFlipAug',
@@ -43,7 +52,7 @@ test_pipeline = [
 ]
 inference_pipeline = [
     dict(type='LoadImageFromFile'),
-    # dict(type='LoadAnnotations', reduce_zero_label=False),
+    # dict(type='LoadAnnotationsSplitByCategory', reduce_zero_label=False),
     dict(type='LoadCategory'),
     dict(
         type='MultiScaleFlipAug',

@@ -63,7 +63,7 @@ class LoadAnnotationsSplitByCategory(object):
             for old_id, new_id in results['label_map'].items():
                 gt_semantic_seg[gt_semantic_seg_copy == old_id] = new_id
         # reduce zero_label
-        gt_semantic_seg[gt_semantic_seg == 255] = results['ann_info']['category'] + 1
+        gt_semantic_seg[gt_semantic_seg == 1] = results['ann_info']['category'] + 1
         if self.reduce_zero_label:
             # avoid using underflow conversion
             gt_semantic_seg[gt_semantic_seg == 0] = 255
