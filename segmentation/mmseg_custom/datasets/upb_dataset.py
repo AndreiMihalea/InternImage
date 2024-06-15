@@ -28,7 +28,7 @@ TURNING_SCENARIOS = ["TIGHT LEFT", "SLIGHT LEFT", "FORWARD", "SLIGHT RIGHT", "TI
 
 @DATASETS.register_module()
 class UPBDataset(CustomDataset):
-    CLASSES = ('rest', 'tight left', 'slight left', 'forward', 'slight right', 'tight right')
+    CLASSES = ('tight left', 'slight left', 'forward', 'slight right', 'tight right')
     # PALETTE = [[0, 0, 255], [255, 0, 0]]
     def __init__(self, split, soft_output=False, **kwargs):
         super(UPBDataset, self).__init__(

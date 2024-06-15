@@ -165,6 +165,6 @@ lr_config = dict(_delete_=True, policy='poly',
 data = dict(samples_per_gpu=4, workers_per_gpu=4)
 runner = dict(type='IterBasedRunner')
 optimizer_config = dict(_delete_=True, grad_clip=dict(max_norm=0.1, norm_type=2))
-checkpoint_config = dict(by_epoch=False, interval=1000, max_keep_ckpts=1)
+checkpoint_config = dict(by_epoch=False, interval=4000, max_keep_ckpts=1)
 evaluation = dict(interval=16000, metric='mIoU_soft', save_best='mIoU_soft')
 # fp16 = dict(loss_scale=dict(init_scale=512))

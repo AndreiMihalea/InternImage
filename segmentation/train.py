@@ -68,7 +68,7 @@ def train_segmentor_custom(model,
     data_loaders = [build_dataloader_train(ds, **train_loader_cfg) for ds in dataset]
 
     categories = {x: 0 for x in range(6)}
-    print(len(data_loaders[0]))
+    print(f'Dataloader length: {len(data_loaders[0])}')
     for i, el in enumerate(data_loaders[0]):
         if i % 100 == 0:
             print(i)
