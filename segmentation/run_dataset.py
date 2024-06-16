@@ -98,6 +98,8 @@ def main():
     save_good_bad = args.save_good_bad
     save_dir = args.save_dir
 
+    config_name = args.config.split('/')[-1].replace('.py', '')
+
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
@@ -204,6 +206,7 @@ def main():
 
         result = inference_segmentor_custom(model, image_path_og, ann_info)
         res = result[0].copy()
+        res[res != 0] = 1
         # print(result[1][0][0].max(), result[1][0][0].min())
         # cv2.imshow("soft", result[1][0][1])
         # cv2.waitKey(0)
@@ -233,6 +236,14 @@ def main():
         # cv2.imwrite(f'demo/synasc/{split}_demo_rgb_label.png', img_label)
         # cv2.imwrite(f'demo/synasc/{split}_demo_rgb_res.png', img_res)
 
+        img_cp_1 = img.copy()
+        img_cp_1[np.logical_or(res, gt_label) != 0] //= 3
+
+        colored_res = colorize_mask(res, (0, 0, 255))
+        colored_gt = colorize_mask(gt_label, (0, 255, 0))
+        mixed_gt_res = cv2.addWeighted(colored_gt, 1, colored_res, 1, 0.)
+        final_img_gt_res = cv2.addWeighted(img_cp_1, 1, mixed_gt_res, 1, 0.)
+
         if args.additional_config and args.additional_checkpoint:
             for angle in [0]:
                 # ann_info['scenario_text'] = angle
@@ -259,22 +270,19 @@ def main():
                     np.sum((gt_label == additional_model_res) * additional_model_mask)
                 additional_model_total_pixels += np.sum(gt_label)
 
-                colored_res = colorize_mask(res, (0, 0, 255))
                 colored_res_blue = colorize_mask(res, (255, 255, 102))
                 colored_additional_res = colorize_mask(additional_model_res, (0, 0, 255))
                 colored_additional_res_orange = colorize_mask(additional_model_res, (193, 0, 56))
-                colored_gt = colorize_mask(gt_label, (0, 255, 0))
-                mixed_gt_res = cv2.addWeighted(colored_gt, 1, colored_res, 1, 0.)
+
                 mixed_gt_additional_res = cv2.addWeighted(colored_gt, 1, colored_additional_res, 1, 0.)
                 mixed_res_additional_res = cv2.addWeighted(colored_res_blue, 1, colored_additional_res_orange, 1, 0.)
                 mixed_res_additional_res[np.logical_and(additional_model_res, res) != 0] = (0, 255, 255)
-                img_cp_1 = img.copy()
+
                 img_cp_2 = img.copy()
                 img_cp_3 = img.copy()
                 img_cp_1[np.logical_or(res, gt_label) != 0] //= 3
                 img_cp_2[np.logical_or(additional_model_res, gt_label) != 0] //= 3
-                img_cp_3[np.logical_or(additional_model_res, res) != 0] //= 3
-                final_img_gt_res = cv2.addWeighted(img_cp_1, 1, mixed_gt_res, 1, 0.)
+
                 final_img_gt_additional_res = cv2.addWeighted(img_cp_2, 1, mixed_gt_additional_res, 1, 0.)
                 final_img_res_additional_res = cv2.addWeighted(img_cp_3, 1, mixed_res_additional_res, 1, 0.)
                 # cv2.destroyAllWindows()
@@ -295,7 +303,6 @@ def main():
                     # cv2.imshow('res_additional_res', final_img_res_additional_res)
                     # cv2.waitKey(0)
                     # cv2.destroyAllWindows()
-                    config_name = args.config.split('/')[-1].replace('.py', '')
                     additional_config_name = args.additional_config.split('/')[-1].replace('.py', '')
                     if save_dir:
                         cv2.imwrite(f'{save_dir}/{filename}_{config_name}_{additional_config_name}'
@@ -304,6 +311,8 @@ def main():
                                     f'_gt_additional_res.png', final_img_gt_additional_res)
                         cv2.imwrite(f'{save_dir}/{filename}_{config_name}_{additional_config_name}'
                                     f'_res_additional_res.png', final_img_res_additional_res)
+        else:
+            cv2.imwrite(f'{save_dir}/{filename}_{config_name}_gt_res.png', final_img_gt_res)
 
         if save_good_bad:
             if np.abs(angle) > 60 and iou > 0.55:

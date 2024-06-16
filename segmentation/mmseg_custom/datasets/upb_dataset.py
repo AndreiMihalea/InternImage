@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from mmseg_custom.datasets.pipelines.formatting import ToSoft, ToMask
 from segmentation.dist_utils import build_dataloader
+from mmseg_custom.datasets.pipelines.loading import LoadAnnotationsSplitByCategory
 from ..core.evaluation.metrics import pre_eval_to_metrics, eval_metrics, jaccard_metric
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -28,7 +29,7 @@ TURNING_SCENARIOS = ["TIGHT LEFT", "SLIGHT LEFT", "FORWARD", "SLIGHT RIGHT", "TI
 
 @DATASETS.register_module()
 class UPBDataset(CustomDataset):
-    CLASSES = ('tight left', 'slight left', 'forward', 'slight right', 'tight right')
+    CLASSES = ('rest', 'tight left', 'slight left', 'forward', 'slight right', 'tight right')
     # PALETTE = [[0, 0, 255], [255, 0, 0]]
     def __init__(self, split, soft_output=False, **kwargs):
         super(UPBDataset, self).__init__(
@@ -37,6 +38,7 @@ class UPBDataset(CustomDataset):
             split=split,
             reduce_zero_label=False,
             **kwargs)
+        self.gt_seg_map_loader = LoadAnnotationsSplitByCategory()
 
         self.soft_output = soft_output
 

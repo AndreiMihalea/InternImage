@@ -75,6 +75,10 @@ class ToMask(object):
         gt_labels = np.unique(gt_semantic_seg)
         # print(gt_labels)
         # remove ignored region
+        # show_seg = gt_semantic_seg.copy()
+        # show_seg[show_seg != 0] = 255
+        # cv2.imshow(f'{gt_labels}', show_seg)
+        # cv2.waitKey(0)
         gt_labels = gt_labels[gt_labels != self.ignore_index]
 
         gt_masks = []

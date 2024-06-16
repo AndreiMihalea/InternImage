@@ -324,7 +324,8 @@ def build_dataloader(dataset,
         batch_size = samples_per_gpu
         num_workers = workers_per_gpu
     else:
-        sampler = None
+        sampler = sampler
+        shuffle = False
         batch_size = num_gpus * samples_per_gpu
         num_workers = num_gpus * workers_per_gpu
 
