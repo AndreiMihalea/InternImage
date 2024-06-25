@@ -66,24 +66,33 @@ class DefaultFormatBundle(object):
 @PIPELINES.register_module()
 class ToMask(object):
     """Transfer gt_semantic_seg to binary mask and generate gt_labels."""
-    def __init__(self, ignore_index=255):
+    def __init__(self, ignore_index=255, soft_output=False, num_classes=2):
         self.ignore_index = ignore_index
+        self.soft_output = soft_output
+        self.num_classes = num_classes
 
     def __call__(self, results):
         gt_semantic_seg = results['gt_semantic_seg']
         # gt_semantic_seg[gt_semantic_seg == 255] = 1
-        gt_labels = np.unique(gt_semantic_seg)
-        # print(gt_labels)
-        # remove ignored region
-        # show_seg = gt_semantic_seg.copy()
-        # show_seg[show_seg != 0] = 255
-        # cv2.imshow(f'{gt_labels}', show_seg)
-        # cv2.waitKey(0)
-        gt_labels = gt_labels[gt_labels != self.ignore_index]
+        if not self.soft_output:
+            gt_labels = np.unique(gt_semantic_seg)
+            # print(gt_labels)
+            # remove ignored region
+            # show_seg = gt_semantic_seg.copy()
+            # show_seg[show_seg != 0] = 255
+            # cv2.imshow(f'{gt_labels}', show_seg)
+            # cv2.waitKey(0)
+            gt_labels = gt_labels[gt_labels != self.ignore_index]
 
-        gt_masks = []
-        for class_id in gt_labels:
-            gt_masks.append(gt_semantic_seg == class_id)
+            gt_masks = []
+            for class_id in gt_labels:
+                gt_masks.append(gt_semantic_seg == class_id)
+
+        else:
+            gt_labels = np.arange(self.num_classes)
+            gt_masks = []
+            for class_id in gt_labels:
+                gt_masks.append(gt_semantic_seg == class_id)
 
         if len(gt_masks) == 0:
             # Some image does not have annotation (all ignored)
@@ -114,10 +123,11 @@ class ToSoft:
     """
     Turn class segmentation into soft labels (this is thought for two classes)
     """
-    def __init__(self, num_iter, kernel_size, std_dev):
+    def __init__(self, num_iter, kernel_size, std_dev, soft_output=False):
         self.num_iter = num_iter
         self.kernel_size = kernel_size
         self.std_dev = std_dev
+        self.soft_output = soft_output
 
     def __call__(self, input_dict):
         gt_masks = input_dict['gt_masks'].copy()

@@ -3,14 +3,15 @@
 # Copyright (c) 2022 OpenGVLab
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
+from segmentation.configs._base_.ego_traj_generic_params import num_classes_path
+
+
 _base_ = [
     '../_base_/models/mask2former.py', '../_base_/datasets/kitti_soft.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
 ]
-weight_dice = 5.0
-weight_jaccard = 5.0
 num_things_classes = 0
-num_stuff_classes = 7
+num_stuff_classes = num_classes_path
 num_classes = num_things_classes + num_stuff_classes
 crop_size = (200, 664)
 pretrained = 'https://huggingface.co/OpenGVLab/InternImage/resolve/main/internimage_b_1k_224.pth'
@@ -107,44 +108,16 @@ model = dict(
         loss_cls=dict(
             type='CrossEntropyLoss',
             use_sigmoid=False,
-            loss_weight=2.0,#2.0,
+            loss_weight=2.0,
             reduction='mean',
-            class_weight=[1.0] * num_classes + [0.1]),
-        loss_mask=dict(
-            type='CrossEntropyLoss',
-            use_sigmoid=True,
-            reduction='mean',
-            loss_weight=5.0),
-        loss_dice=dict(
-            type='DiceLoss',
-            use_sigmoid=True,
-            activate=True,
-            reduction='mean',
-            naive_dice=True,
-            eps=1.0,
-            loss_weight=weight_dice),#5.0),
+            class_weight=[0.1, *([1.0] * (num_classes - 1)), 0.1]),
         loss_jaccard=dict(
-            type='JaccardLoss',
-            use_sigmoid=True,
-            activate=True,
-            reduction='mean',
-            loss_weight=weight_jaccard)
+                    type='JaccardLoss',
+                    use_sigmoid=True,
+                    activate=True,
+                    reduction='mean',
+                    loss_weight=5.0)
     ),
-    train_cfg=dict(
-        num_points=12544,
-        oversample_ratio=3.0,
-        importance_sample_ratio=0.75,
-        assigner=dict(
-            type='MaskHungarianAssigner',
-            cls_cost=dict(type='ClassificationCost', weight=2.0),
-            mask_cost=dict(
-                type='CrossEntropyLossCost', weight=5.0, use_sigmoid=True),
-            dice_cost=dict(
-                type='DiceCost', weight=weight_dice, pred_act=True, eps=1.0),
-            jaccard_cost=dict(
-                type='JaccardCost', weight=weight_jaccard, pred_act=True, eps=1.0),
-        ),
-        sampler=dict(type='MaskPseudoSampler')),
     test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341)),
     soft_output=True)
 
@@ -162,9 +135,10 @@ lr_config = dict(_delete_=True, policy='poly',
                  warmup_ratio=1e-6,
                  power=1.0, min_lr=0.0, by_epoch=False)
 # By default, models are trained on 8 GPUs with 2 images per GPU
-data = dict(samples_per_gpu=4, workers_per_gpu=4)
+data = dict(samples_per_gpu=2, workers_per_gpu=4)
 runner = dict(type='IterBasedRunner')
+log_config = dict(interval=1000)
 optimizer_config = dict(_delete_=True, grad_clip=dict(max_norm=0.1, norm_type=2))
-checkpoint_config = dict(by_epoch=False, interval=4000, max_keep_ckpts=1)
+checkpoint_config = dict(by_epoch=False, interval=1000, max_keep_ckpts=1)
 evaluation = dict(interval=16000, metric='mIoU_soft', save_best='mIoU_soft')
 # fp16 = dict(loss_scale=dict(init_scale=512))

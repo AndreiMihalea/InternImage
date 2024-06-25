@@ -3,12 +3,15 @@
 # Copyright (c) 2022 OpenGVLab
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
+from segmentation.configs._base_.ego_traj_generic_params import num_classes_path
+
+
 _base_ = [
     '../_base_/models/mask2former.py', '../_base_/datasets/kitti_soft.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
 ]
 num_things_classes = 0
-num_stuff_classes = 7
+num_stuff_classes = num_classes_path
 num_classes = num_things_classes + num_stuff_classes
 crop_size = (200, 664)
 pretrained = 'https://huggingface.co/OpenGVLab/InternImage/resolve/main/internimage_b_1k_224.pth'
@@ -29,7 +32,7 @@ model = dict(
         with_cp=False,
         out_indices=(0, 1, 2, 3),
         init_cfg=dict(type='Pretrained', checkpoint=pretrained)),
-    additional_input='category',  # can be category, curvature or scenario_text
+    additional_input='categury',  # can be category, curvature or scenario_text
     additional_input_merging='cross_attention',  # can be input_concat or cross_attention
     decode_head=dict(
         type='Mask2FormerHead',
@@ -105,28 +108,15 @@ model = dict(
         loss_cls=dict(
             type='CrossEntropyLoss',
             use_sigmoid=False,
-            loss_weight=2.0,#2.0,
+            loss_weight=2.0,
             reduction='mean',
-            class_weight=[1.0] * num_classes + [0.1]),
-        loss_mask=dict(
-            type='CrossEntropyLoss',
-            use_sigmoid=True,
-            reduction='mean',
-            loss_weight=5.0),#5.0),
-        loss_dice=dict(
-            type='DiceLoss',
-            use_sigmoid=True,
-            activate=True,
-            reduction='mean',
-            naive_dice=True,
-            eps=1.0,
-            loss_weight=5.0),#5.0),
+            class_weight=[0.1, *([1.0] * (num_classes - 1)), 0.1]),
         loss_jaccard=dict(
-            type='JaccardLoss',
-            use_sigmoid=True,
-            activate=True,
-            reduction='mean',
-            loss_weight=0.0)
+                    type='JaccardLoss',
+                    use_sigmoid=True,
+                    activate=True,
+                    reduction='mean',
+                    loss_weight=5.0)
     ),
     test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341)),
     soft_output=True)
@@ -145,8 +135,9 @@ lr_config = dict(_delete_=True, policy='poly',
                  warmup_ratio=1e-6,
                  power=1.0, min_lr=0.0, by_epoch=False)
 # By default, models are trained on 8 GPUs with 2 images per GPU
-data = dict(samples_per_gpu=4, workers_per_gpu=4)
+data = dict(samples_per_gpu=2, workers_per_gpu=4)
 runner = dict(type='IterBasedRunner')
+log_config = dict(interval=1000)
 optimizer_config = dict(_delete_=True, grad_clip=dict(max_norm=0.1, norm_type=2))
 checkpoint_config = dict(by_epoch=False, interval=1000, max_keep_ckpts=1)
 evaluation = dict(interval=16000, metric='mIoU_soft', save_best='mIoU_soft')

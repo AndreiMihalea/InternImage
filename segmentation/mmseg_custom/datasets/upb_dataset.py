@@ -31,16 +31,22 @@ TURNING_SCENARIOS = ["TIGHT LEFT", "SLIGHT LEFT", "FORWARD", "SLIGHT RIGHT", "TI
 class UPBDataset(CustomDataset):
     CLASSES = ('rest', 'tight left', 'slight left', 'forward', 'slight right', 'tight right')
     # PALETTE = [[0, 0, 255], [255, 0, 0]]
-    def __init__(self, split, soft_output=False, **kwargs):
+    def __init__(self, split, soft_output=False, num_classes=2, **kwargs):
         super(UPBDataset, self).__init__(
             img_suffix='.png',
             seg_map_suffix='.png',
             split=split,
             reduce_zero_label=False,
             **kwargs)
-        self.gt_seg_map_loader = LoadAnnotationsSplitByCategory()
 
         self.soft_output = soft_output
+        self.num_classes = num_classes
+
+        if self.num_classes > 2:
+            self.gt_seg_map_loader = LoadAnnotationsSplitByCategory()
+            self.CLASSES = ('rest', 'tight left', 'slight left', 'forward', 'slight right', 'tight right')
+        else:
+            self.CLASSES = ('rest', 'path')
 
         if self.test_mode:
             for step in kwargs['pipeline']:

@@ -3,12 +3,15 @@
 # Copyright (c) 2022 OpenGVLab
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
+from segmentation.configs._base_.ego_traj_generic_params import num_classes_path
+
+
 _base_ = [
     '../_base_/models/mask2former.py', '../_base_/datasets/kitti.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
 ]
 num_things_classes = 0
-num_stuff_classes = 6
+num_stuff_classes = num_classes_path
 num_classes = num_things_classes + num_stuff_classes
 crop_size = (200, 664)
 pretrained = 'https://huggingface.co/OpenGVLab/InternImage/resolve/main/internimage_b_1k_224.pth'

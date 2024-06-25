@@ -13,7 +13,6 @@ def jaccard_metric(pred, gt_soft_map):
 
 
 def jm_from_preds_gt(abs_pred, abs_gt, abs_pred_minus_gt, eps=1e-3):
-    print(abs_pred, abs_gt, abs_pred_minus_gt, (abs_pred + abs_gt - abs_pred_minus_gt + eps) / (abs_pred + abs_gt + abs_pred_minus_gt + eps))
     return (abs_pred + abs_gt - abs_pred_minus_gt + eps) / (abs_pred + abs_gt + abs_pred_minus_gt + eps)
 
 
