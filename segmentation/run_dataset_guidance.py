@@ -26,16 +26,19 @@ LIMITS = [-80, -40, 0, 40, 80]
 LIMITS_SCENARIOS = [-60, -18, 18, 60]
 
 
-
 alpha = 0.5
 beta = 1 - alpha
 
 CHECKPOINTS = [
-    'work_dirs/mask2former_internimage_b_kitti_balanced_sampler_30',
-    'work_dirs/mask2former_internimage_b_imgcat_kitti_balanced_sampler_30_fix',
-    'work_dirs/mask2former_internimage_b_imgcurv_kitti_balanced_sampler_30_fix',
-    'work_dirs/mask2former_internimage_b_imgtext_kitti_balanced_sampler_30_fix',
+    'work_dirs/mask2former_internimage_b_kitti_attcat_balanced_sampler_30_separate_classes',
+    'work_dirs/mask2former_internimage_b_kitti_imgcat_balanced_sampler_30_separate_classes',
+    'work_dirs/mask2former_internimage_b_kitti_attcurv_balanced_sampler_30_separate_classes',
+    'work_dirs/mask2former_internimage_b_kitti_imgcurv_balanced_sampler_30_separate_classes',
+    'work_dirs/mask2former_internimage_b_kitti_atttext_balanced_sampler_30_separate_classes',
+    'work_dirs/mask2former_internimage_b_kitti_imgtext_balanced_sampler_30_separate_classes',
+    'work_dirs/mask2former_internimage_b_kitti_balanced_sampler_30_separate_classes'
 ]
+
 
 MODEL_CONFIG_PATH = 'configs/mask2former'
 
@@ -64,8 +67,12 @@ def main():
     models = {}
 
     for checkpoint in CHECKPOINTS:
-        checkpoint_name = checkpoint.split('/')[-1]
-        config = checkpoint.split('/')[-1].split('_balanced_sampler')[0]
+        checkpoint_name = checkpoint.split('/')[-1].split('_')[4].replace('balanced', 'noguidance')
+        # config = checkpoint.split('/')[-1].split('_balanced_sampler')[0]
+        config = checkpoint.split('/')[-1].split('_balanced_sampler')[0].replace(f'kitti_{checkpoint_name}',
+                                                                                 f'{checkpoint_name}_kitti') \
+            if checkpoint_name != 'balanced' else checkpoint.split('/')[-1].split('_balanced_sampler')[0]
+        print(config, glob.glob(f'{checkpoint}/best*.pth'), checkpoint)
         config_path = os.path.join(MODEL_CONFIG_PATH, f'{config}.py')
         checkpoint_pth = glob.glob(f'{checkpoint}/best*.pth')[0]
         model = init_segmentor(config_path, checkpoint=None, device=args.device)
@@ -85,14 +92,14 @@ def main():
     with open(split_path, 'r') as f:
         split_data = f.readlines()
 
-    for row in tqdm(split_data[::7]):
+    for row in tqdm(split_data[::10]):
         row = row.strip()
         if len(row.split(',')) == 3:
             image_file, _, _ = row.split(',')
         else:
             image_file, _ = row.split(',')
         frame = image_file.split('.')[0]
-        for angle in [-80, -60, -40, -20, 0, 20, 40, 60, 80]:
+        for angle in [-70, -35, 0, 35, 70]:
             angle = float(angle)
             limits = [-float('inf'), *LIMITS, float('inf')]
             limits_scenarios = [-float('inf'), *LIMITS_SCENARIOS, float('inf')]
@@ -104,23 +111,24 @@ def main():
             if not os.path.exists(gt_path):
                 continue
 
-            print(category, category_scenarios, angle)
+            # print(category, category_scenarios, angle)
 
             img = cv2.imread(image_path_og)
 
             gt_label = cv2.imread(gt_path)[:, :, 0].astype(np.float32)
 
             for checkpoint_name in models:
-                if 'imgcat' in checkpoint_name:
+                if 'cat' in checkpoint_name:
                     guidance_category = category_scenarios
-                elif 'imgcurv' in checkpoint_name:
+                elif 'curv' in checkpoint_name:
                     guidance_category = int(angle)
-                elif 'imgtext' in checkpoint_name:
+                elif 'text' in checkpoint_name:
                     guidance_category = category_scenarios
                 else:
                     guidance_category = ''
 
-                output_file = os.path.join(save_dir, f'{frame}_{checkpoint_name}_{guidance_category}.png')
+                output_file = os.path.join(save_dir, f'{frame}_{checkpoint_name}_{guidance_category}.png') \
+                    if guidance_category != '' else os.path.join(save_dir, f'{frame}_{checkpoint_name}.png')
 
                 if os.path.exists(output_file):
                     continue

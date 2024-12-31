@@ -6,8 +6,7 @@ from argparse import ArgumentParser
 import numpy as np
 from tqdm import tqdm
 
-import mmcv_custom  # noqa: F401,F403
-import mmseg_custom  # noqa: F401,F403
+import segmentation.mmseg_custom  # noqa: F401,F403
 from mmseg.apis import init_segmentor
 from mmseg.apis.inference import LoadImage
 from mmcv.runner import load_checkpoint
@@ -290,8 +289,8 @@ def main():
 
                 config_name = args.config.split('/')[-1].replace('.py', '')
                 additional_config_name = args.additional_config.split('/')[-1].replace('.py', '')
-                cv2.imwrite(f'{save_dir}/{filename}_{config_name}_{additional_config_name}'
-                            f'_gt_additional_res.png', final_img_gt_additional_res)
+                # cv2.imwrite(f'{save_dir}/{filename}_{config_name}_{additional_config_name}'
+                #             f'_gt_additional_res.png', final_img_gt_additional_res)
 
                 if additional_model_iou < iou - 0.3:
                     # cv2.imshow('gt_add_res', final_img_gt_additional_res)
@@ -312,7 +311,8 @@ def main():
                         cv2.imwrite(f'{save_dir}/{filename}_{config_name}_{additional_config_name}'
                                     f'_res_additional_res.png', final_img_res_additional_res)
         else:
-            cv2.imwrite(f'{save_dir}/{filename}_{config_name}_gt_res.png', final_img_gt_res)
+            pass
+            # cv2.imwrite(f'{save_dir}/{filename}_{config_name}_gt_res.png', final_img_gt_res)
 
         if save_good_bad:
             if np.abs(angle) > 60 and iou > 0.55:

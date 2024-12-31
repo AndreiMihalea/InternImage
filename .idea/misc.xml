@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Remote Python 3.7.16 (sftp://amihalea@localhost:7000/home/amihalea/miniconda3/envs/internimage/bin/python)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.7.16 (sftp://amihalea@10.89.3.47:22/home/amihalea/miniconda3/envs/internimage/bin/python)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="internimage" project-jdk-type="Python SDK" />
 </project>

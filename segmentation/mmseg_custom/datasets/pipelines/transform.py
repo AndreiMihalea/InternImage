@@ -403,13 +403,14 @@ class CustomCrop:
 
 @PIPELINES.register_module()
 class PerspectiveAug:
-    def __init__(self, k, m):
+    def __init__(self, k, m, prob=0.5):
         """
         :param k: camera intrinsic matrix
         :param m: camera extrinsic matrix
         """
         self.k = np.array(k)
         self.m = np.array(m)
+        self.prob = prob
 
     def translate_image(self, image, distance, k, m, border_value):
         """
@@ -458,51 +459,53 @@ class PerspectiveAug:
         return rotated_image
 
     def __call__(self, input_dict):
-        tx, ry = 0.0, 0.0
+        if np.random.rand() < self.prob:
+            tx, ry = 0.0, 0.0
 
-        sgnt = 1 if np.random.rand() > 0.5 else -1
-        sgnr = 1 if np.random.rand() > 0.5 else -1
+            sgnt = 1 if np.random.rand() > 0.5 else -1
+            sgnr = 1 if np.random.rand() > 0.5 else -1
 
-        if np.random.rand() < 0.33:
-            tx = sgnt * np.random.uniform(0.5, 1.2)
-            ry = sgnr * np.random.uniform(0.05, 0.12)
-        else:
-            if np.random.rand() < 0.5:
-                tx = sgnt * np.random.uniform(0.5, 1.5)
+            if np.random.rand() < 0.33:
+                tx = sgnt * np.random.uniform(0.5, 1.2)
+                ry = sgnr * np.random.uniform(0.05, 0.12)
             else:
-                ry = sgnr * np.random.uniform(0.05, 0.25)
+                if np.random.rand() < 0.5:
+                    tx = sgnt * np.random.uniform(0.5, 1.5)
+                else:
+                    ry = sgnr * np.random.uniform(0.05, 0.25)
 
-        ry = -ry
+            ry = -ry
+            print(input_dict)
 
-        for key in ['img', 'gt_semantic_seg']:
-            img = input_dict[key]
-            # unique_values = np.unique(img)
+            for key in ['img', 'gt_semantic_seg']:
+                img = input_dict[key]
+                # unique_values = np.unique(img)
 
-            height, width = img.shape[:2]
+                height, width = img.shape[:2]
 
-            k = self.k.copy()
-            k[0, :] *= width
-            k[1, :] *= height
+                k = self.k.copy()
+                k[0, :] *= width
+                k[1, :] *= height
 
-            m = self.m.copy()
-            m = np.linalg.inv(m)[:3, :]
+                m = self.m.copy()
+                m = np.linalg.inv(m)[:3, :]
 
-            # transformation object
-            # after all transformation, for the old dataset we end up
-            border_value = (0, 0, 0) if len(img.shape) == 3 else 0
-            output = self.rotate_image(img, ry, k, m, border_value)
-            output = self.translate_image(output, tx, k, m, border_value)
+                # transformation object
+                # after all transformation, for the old dataset we end up
+                border_value = (0, 0, 0) if len(img.shape) == 3 else 0
+                output = self.rotate_image(img, ry, k, m, border_value)
+                output = self.translate_image(output, tx, k, m, border_value)
 
-            # if key == 'gt_semantic_seg':
-            #     diff = np.abs(output.reshape(-1, 1) - unique_values)
-            #     indices = np.argmin(diff, axis=1)
-            #     output = unique_values[indices].reshape(output.shape)
+                # if key == 'gt_semantic_seg':
+                #     diff = np.abs(output.reshape(-1, 1) - unique_values)
+                #     indices = np.argmin(diff, axis=1)
+                #     output = unique_values[indices].reshape(output.shape)
 
-            input_dict[key] = output
+                input_dict[key] = output
 
-            # print(np.unique(output), input_dict[key].shape)
-            # cv2.imshow('img', input_dict[key])
-            # cv2.waitKey(0)
+                # print(np.unique(output), input_dict[key].shape)
+                # cv2.imshow('img', input_dict[key])
+                # cv2.waitKey(0)
 
         return input_dict
 

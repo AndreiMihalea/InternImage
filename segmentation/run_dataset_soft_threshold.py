@@ -9,7 +9,7 @@ import numpy as np
 from tqdm import tqdm
 
 import mmcv_custom  # noqa: F401,F403
-import mmseg_custom  # noqa: F401,F403
+# import mmseg_custom  # noqa: F401,F403
 from mmseg.apis import init_segmentor
 from mmseg.apis.inference import LoadImage
 from mmcv.runner import load_checkpoint
@@ -43,14 +43,14 @@ def main():
     parser.add_argument('--use-all-data', action='store_true', help='Whether to use all the data or just the split')
     parser.add_argument('--save-good-bad', action='store_true', help='Whether to save good and bad examples')
     parser.add_argument('--horizon', type=int, help='Length of the prediction horizon')
-    parser.add_argument('--out', type=str, default="demo", help='out dir')
+    parser.add_argument('--save-dir', type=str, default="demo", help='save_dir dir')
     parser.add_argument(
         '--device', default='cuda:0', help='Device used for inference')
 
     args = parser.parse_args()
 
-    out = args.out
-    os.makedirs(out, exist_ok=True)
+    save_dir = args.save_dir
+    os.makedirs(save_dir, exist_ok=True)
 
     # build the model from a config file and a checkpoint file
 
@@ -87,8 +87,11 @@ def main():
         total_matching_pixels = 0
         total_pixels = 0
 
+        total_jaccard_upper = 0
+        total_jaccard_lower = 0
+
         thr = thr / 100
-        for row in tqdm(split_data[::10]):
+        for row in tqdm(split_data[0:]):
             row = row.strip()
             if len(row.split(',')) == 3:
                 image_file, angle, _ = row.split(',')
@@ -118,14 +121,37 @@ def main():
 
             result = inference_segmentor_custom(model, image_path_og, ann_info)
             # print(type(result), len(result), type(result[0]), result[0].shape)
-            res = result[0][1].copy()
-            res[res > thr] = 1
-            res[res != 1] = 0
+            res = result[0][1:].sum(axis=0).copy()
+
+            thr_res = res.copy()
+            thr_res[thr_res > thr] = 1
+            thr_res[thr_res != 1] = 0
+
+            res_show = np.repeat(res[:, :, np.newaxis], 3, axis=2)
+            thr_res_show = np.repeat(thr_res[:, :, np.newaxis], 3, axis=2)
+
+            arr_final = np.concatenate((img / 255., res_show, thr_res_show), axis=0)
+            # res[res > 0.01] = 1
+            # cv2.imshow('res', arr_final)
+            # cv2.waitKey(0)
             # print(result[0][1].max(), result[0][1].min())
             heatmap = cv2.applyColorMap((result[0][1] * 255.).astype(np.uint8), cv2.COLORMAP_MAGMA)
 
+            res = thr_res.copy()
+
             intersection = np.logical_and(gt_label, res)
             union = np.logical_or(gt_label, res)
+
+            gt_label_copy = gt_label.copy()
+            for _ in range(12):
+                gt_label_copy = cv2.GaussianBlur(gt_label_copy.astype(np.float32), (11, 11), 5)
+
+            abs_pred = np.mean(np.abs(res))
+            abs_gt = np.mean(np.abs(gt_label_copy))
+            abs_pred_minus_gt = np.mean(np.abs(res - gt_label_copy))
+
+            total_jaccard_upper += abs_pred + abs_gt - abs_pred_minus_gt
+            total_jaccard_lower += abs_pred + abs_gt + abs_pred_minus_gt
 
             # cv2.imshow("soft", heatmap)
             # cv2.waitKey(0)
@@ -153,10 +179,11 @@ def main():
             # cv2.imshow('final_img', final_img_gt_res)
             # cv2.waitKey()
 
-            cv2.imwrite(os.path.join(out, f'{image_file}'.replace('.png', '_heatmap.png')), heatmap)
-            cv2.imwrite(os.path.join(out, f'{image_file}'.replace('.png', '_threshold.png')), final_img_gt_res)
+            # cv2.imwrite(os.path.join(save_dir, f'{image_file}'.replace('.png', '_heatmap.png')), heatmap)
+            # cv2.imwrite(os.path.join(save_dir, f'{image_file}'.replace('.png', '_threshold_lower.png')), final_img_gt_res)
 
-        print(round(total_intersection / total_union * 100, 2), round(total_matching_pixels / total_pixels * 100, 2), thr)
+        print(round(total_intersection / total_union * 100, 2), round(total_matching_pixels / total_pixels * 100, 2),
+              thr, round(total_jaccard_upper / total_jaccard_lower * 100, 2))
 
 
 if __name__ == '__main__':

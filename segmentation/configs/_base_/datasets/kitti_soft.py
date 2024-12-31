@@ -1,22 +1,34 @@
 import os
 import platform
-from segmentation.configs._base_.ego_traj_generic_params import num_classes_path, flip_prob
+from segmentation.configs._base_.ego_traj_generic_params import (num_classes_path, flip_prob, annotations_loader,
+                                                                 dataset_name)
 
 
 hostname = platform.node()
 # dataset settings
 dataset_type = 'UPBDataset'
-if 'nemodrive' in hostname:
+if 'nemodrive1' in hostname:
     storage_path = '/mnt/datadisk/andreim'
+elif 'nemodrive0' in hostname:
+    storage_path = '/mnt/storage/workspace/andreim/nemodrive'
 else:
     storage_path = '/raid/andreim'
-data_root = os.path.join(storage_path, 'kitti/data_odometry_color/segmentation')
+if dataset_name == 'upb':
+    relative_dataset_path = 'upb_data/segmentation'
+elif dataset_name == 'kitti':
+    relative_dataset_path = 'kitti/data_odometry_color/segmentation'
+else:
+    relative_dataset_path = ''
+data_root = os.path.join(storage_path, relative_dataset_path)
 img_norm_cfg = dict(
     mean=[89.497, 93.675, 92.645], std=[76.422, 78.611, 80.487], to_rgb=True)
-crop_size = (200, 664)
+if dataset_name == 'kitti':
+    crop_size = (200, 664)
+else:
+    crop_size = (288, 640)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotationsSplitByCategory', reduce_zero_label=False),
+    dict(type=annotations_loader, reduce_zero_label=False),
     dict(type='LoadCategory'),
     # dict(type='PerspectiveAug', k=[[0.61, 0, 0.5], [0, 1.36, 0.5], [0, 0, 1]],
     #      m=[[1, 0, 0, 0.00], [0, 1, 0, 1.65], [0, 0, 1, 1.54], [0, 0, 0, 1]]),
@@ -26,7 +38,7 @@ train_pipeline = [
     dict(type='PhotoMetricDistortion'),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size=crop_size, pad_val=0, seg_pad_val=0),
-    dict(type='ToMask', soft_output=True, num_classes=6),
+    dict(type='ToMask', soft_output=True, num_classes=num_classes_path),
     dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5),
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_masks', 'gt_labels', 'category', 'category_for_balancing',
@@ -46,7 +58,7 @@ test_pipeline = [
             dict(type='RandomFlip', prob=flip_prob),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='ImageToTensor', keys=['img']),
-            dict(type='ToMask', soft_output=True, num_classes=6),
+            dict(type='ToMask', soft_output=True, num_classes=num_classes_path),
             dict(type='ToSoft', num_iter=12, kernel_size=(11, 11), std_dev=5, soft_output=True),
             dict(type='Collect', keys=['img', 'category', 'category_for_balancing', 'curvature', 'scenario_text']),
         ])

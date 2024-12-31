@@ -40,6 +40,23 @@ test_pipeline = [
             dict(type='Collect', keys=['img']),
         ])
 ]
+inference_pipeline = [
+    dict(type='LoadImageFromFile'),
+    dict(
+        type='MultiScaleFlipAug',
+        img_scale=img_scale,
+        # img_ratios=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
+        flip=False,
+        transforms=[
+            dict(type='Resize', keep_ratio=True),
+            dict(type='RandomFlip'),
+            dict(type='Normalize', **img_norm_cfg),
+            # dict(type='CustomCrop', left=0, right=0, top=0.45, bot=0),
+            # dict(type='DefaultFormatBundle'),
+            dict(type='ImageToTensor', keys=['img']),
+            dict(type='Collect', keys=['img']),
+        ])
+]
 data = dict(
     samples_per_gpu=26,
     workers_per_gpu=4,
@@ -63,4 +80,11 @@ data = dict(
         img_dir='images',
         ann_dir='/raid/andreim/kitti/data_odometry_color/segmentation/self_supervised_labels_30',
         split='splits/test_30.txt',
-        pipeline=test_pipeline))
+        pipeline=test_pipeline),
+    inference=dict(
+        type=dataset_type,
+        data_root=data_root,
+        img_dir='images',
+        ann_dir='/raid/andreim/kitti/data_odometry_color/segmentation/self_supervised_labels_30',
+        split='splits/test_30.txt',
+        pipeline=inference_pipeline))

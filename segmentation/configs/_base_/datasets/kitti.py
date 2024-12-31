@@ -1,26 +1,40 @@
 import os
 import platform
-from segmentation.configs._base_.ego_traj_generic_params import num_classes_path, flip_prob
+from segmentation.configs._base_.ego_traj_generic_params import (num_classes_path, flip_prob, annotations_loader,
+                                                                 dataset_name)
 
 hostname = platform.node()
 print(hostname)
 # dataset settings
 dataset_type = 'UPBDataset'
-if 'nemodrive' in hostname:
+if 'nemodrive1' in hostname:
     storage_path = '/mnt/datadisk/andreim'
+elif 'nemodrive0' in hostname:
+    storage_path = '/mnt/storage/workspace/andreim/nemodrive'
 else:
-    storage_path = '/raid/andreim'
-data_root = os.path.join(storage_path, 'kitti/data_odometry_color/segmentation')
+    storage_path = '/raid/andreim/nemodrive'
+if dataset_name == 'upb':
+    relative_dataset_path = 'upb_data/segmentation'
+elif dataset_name == 'kitti':
+    relative_dataset_path = 'kitti/data_odometry_color/segmentation'
+else:
+    relative_dataset_path = ''
+data_root = os.path.join(storage_path, relative_dataset_path)
 img_norm_cfg = dict(
     mean=[89.497, 93.675, 92.645], std=[76.422, 78.611, 80.487], to_rgb=True)
-crop_size = (200, 664)
+if dataset_name == 'kitti':
+    crop_size = (200, 664)
+else:
+    crop_size = (288, 640)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotationsSplitByCategory', reduce_zero_label=False),
+    dict(type=annotations_loader, reduce_zero_label=False),
     dict(type='LoadCategory'),
     # dict(type='PerspectiveAug', k=[[0.61, 0, 0.5], [0, 1.36, 0.5], [0, 0, 1]],
-    #      m=[[1, 0, 0, 0.00], [0, 1, 0, 1.65], [0, 0, 1, 1.54], [0, 0, 0, 1]]),
-    dict(type='Resize', img_scale=(664, 200), ratio_range=None),
+    #      m=[[1, 0, 0, 0.00], [0, 1, 0, 1.65], [0, 0, 1, 1.54], [0, 0, 0, 1]]), for KITTI
+    dict(type='PerspectiveAug', k=[[0.61, 0, 0.5], [0, 1.09, 0.5], [0, 0, 1]],
+         m=[[1, 0, 0, 0.00], [0, 1, 0, 1.65], [0, 0, 1, 1.54], [0, 0, 0, 1]]), # for UPB
+    # dict(type='Resize', img_scale=crop_size[::-1], ratio_range=None),
     # dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=flip_prob),
     dict(type='PhotoMetricDistortion'),

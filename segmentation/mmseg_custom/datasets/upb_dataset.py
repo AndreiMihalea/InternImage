@@ -10,9 +10,9 @@ from mmseg.core import intersect_and_union
 from prettytable import PrettyTable
 from tqdm import tqdm
 
-from mmseg_custom.datasets.pipelines.formatting import ToSoft, ToMask
+from ..datasets.pipelines.formatting import ToSoft, ToMask
 from segmentation.dist_utils import build_dataloader
-from mmseg_custom.datasets.pipelines.loading import LoadAnnotationsSplitByCategory
+from ..datasets.pipelines.loading import LoadAnnotationsSplitByCategory
 from ..core.evaluation.metrics import pre_eval_to_metrics, eval_metrics, jaccard_metric
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
