@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="amihalea@10.89.3.47:22 agent" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="nemodrive@10.89.3.45:22 agent" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
+      <paths name="aimas@10.89.3.51">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/aimas/workspace/andreim/InternImage" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="amihalea@10.89.3.47:22 agent">
         <serverdata>
           <mappings>
@@ -17,10 +24,17 @@
           </mappings>
         </serverdata>
       </paths>
-      <paths name="nemodrive@10.89.3.38:22 password">
+      <paths name="nemodrive@10.89.3.38:22">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/nemodrive/workspace/andreim/InternImage" local="$PROJECT_DIR$" />
+            <mapping deploy="/home/nemodrive/workspace/andreim/InternImage" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="nemodrive@10.89.3.45:22 agent">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/nemodrive/workspace/andreim/InternImage" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

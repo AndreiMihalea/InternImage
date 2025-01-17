@@ -15,7 +15,7 @@ from mmseg.utils import get_root_logger
 from mmseg.models.builder import BACKBONES
 import torch.nn.functional as F
 
-from ops_dcnv3 import modules as opsm
+from segmentation.ops_dcnv3 import modules as opsm
 
 
 class to_channels_first(nn.Module):

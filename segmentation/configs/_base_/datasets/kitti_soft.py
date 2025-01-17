@@ -5,14 +5,17 @@ from segmentation.configs._base_.ego_traj_generic_params import (num_classes_pat
 
 
 hostname = platform.node()
+print(hostname)
 # dataset settings
 dataset_type = 'UPBDataset'
 if 'nemodrive1' in hostname:
     storage_path = '/mnt/datadisk/andreim'
 elif 'nemodrive0' in hostname:
     storage_path = '/mnt/storage/workspace/andreim/nemodrive'
+elif 'aimas' == hostname:
+    storage_path = '/mnt/storage/workspace/andreim/'
 else:
-    storage_path = '/raid/andreim'
+    storage_path = '/raid/andreim/nemodrive'
 if dataset_name == 'upb':
     relative_dataset_path = 'upb_data/segmentation'
 elif dataset_name == 'kitti':
@@ -31,8 +34,10 @@ train_pipeline = [
     dict(type=annotations_loader, reduce_zero_label=False),
     dict(type='LoadCategory'),
     # dict(type='PerspectiveAug', k=[[0.61, 0, 0.5], [0, 1.36, 0.5], [0, 0, 1]],
-    #      m=[[1, 0, 0, 0.00], [0, 1, 0, 1.65], [0, 0, 1, 1.54], [0, 0, 0, 1]]),
-    dict(type='Resize', img_scale=(664, 200), ratio_range=None),
+    #      m=[[1, 0, 0, 0.00], [0, 1, 0, 1.65], [0, 0, 1, 1.54], [0, 0, 0, 1]]), for KITTI
+    dict(type='PerspectiveAug', k=[[0.61, 0, 0.5], [0, 1.09, 0.5], [0, 0, 1]],
+         m=[[1, 0, 0, 0.00], [0, 1, 0, 1.65], [0, 0, 1, 1.54], [0, 0, 0, 1]]), # for UPB
+    # dict(type='Resize', img_scale=crop_size[::-1], ratio_range=None),
     # dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=flip_prob),
     dict(type='PhotoMetricDistortion'),

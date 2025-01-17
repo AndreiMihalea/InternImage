@@ -459,7 +459,7 @@ class PerspectiveAug:
         return rotated_image
 
     def __call__(self, input_dict):
-        if np.random.rand() < self.prob:
+        if np.random.uniform() < self.prob:
             tx, ry = 0.0, 0.0
 
             sgnt = 1 if np.random.rand() > 0.5 else -1
@@ -475,7 +475,6 @@ class PerspectiveAug:
                     ry = sgnr * np.random.uniform(0.05, 0.25)
 
             ry = -ry
-            print(input_dict)
 
             for key in ['img', 'gt_semantic_seg']:
                 img = input_dict[key]

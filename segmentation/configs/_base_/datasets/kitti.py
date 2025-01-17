@@ -11,6 +11,8 @@ if 'nemodrive1' in hostname:
     storage_path = '/mnt/datadisk/andreim'
 elif 'nemodrive0' in hostname:
     storage_path = '/mnt/storage/workspace/andreim/nemodrive'
+elif 'aimas' == hostname:
+    storage_path = '/mnt/storage/workspace/andreim/'
 else:
     storage_path = '/raid/andreim/nemodrive'
 if dataset_name == 'upb':
